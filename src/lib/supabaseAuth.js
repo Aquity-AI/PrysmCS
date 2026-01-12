@@ -5,10 +5,6 @@ const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey);
 
-// ============================================================
-// SUPABASE AUTHENTICATION HELPERS
-// ============================================================
-
 export const supabaseAuth = {
   async signIn(email, password) {
     try {
@@ -28,7 +24,7 @@ export const supabaseAuth = {
 
       const { data: userProfile, error: profileError } = await supabase
         .from('users')
-        .select(`*, tenant:tenants(id, name, slug, plan, features)`)
+        .select('*, tenant:tenants(id, name, slug, plan, features)')
         .eq('auth_user_id', authData.user.id)
         .single();
 
@@ -83,7 +79,7 @@ export const supabaseAuth = {
 
     const { data: userProfile, error } = await supabase
       .from('users')
-      .select(`*, tenant:tenants(id, name, slug, plan, features)`)
+      .select('*, tenant:tenants(id, name, slug, plan, features)')
       .eq('auth_user_id', session.user.id)
       .single();
 
@@ -109,10 +105,6 @@ export const supabaseAuth = {
     return supabase.auth.onAuthStateChange(callback);
   },
 };
-
-// ============================================================
-// SUPABASE DATA HELPERS
-// ============================================================
 
 export const supabaseData = {
   async getClientAccounts(tenantId) {
@@ -231,19 +223,3 @@ export const supabaseData = {
 };
 
 export default { auth: supabaseAuth, data: supabaseData };
-```
-
----
-
-### 16C: Save the file
-
-Your folder structure should now look like:
-```
-src/
-├── components/
-│   └── prysmcs.jsx
-├── lib/
-│   └── supabaseAuth.js    <-- NEW FILE
-├── App.tsx
-├── main.tsx
-└── index.css
