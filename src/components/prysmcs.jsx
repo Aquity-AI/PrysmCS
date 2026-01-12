@@ -26736,9 +26736,56 @@ function PrysmCSDashboardContent() {
   
   // Load persisted data or use initial data
   const [clientsData, setClientsData] = useState(() => {
-    const saved = loadFromStorage();
-    return saved || JSON.parse(JSON.stringify(initialClientsDatabase));
-  });
+  const saved = loadFromStorage();
+  return saved || JSON.parse(JSON.stringify(initialClientsDatabase));
+});
+
+// Supabase data state
+const [supabaseClients, setSupabaseClients] = useState([]);
+const [isLoadingData, setIsLoadingData] = useState(false);
+const [dataSource, setDataSource] = useState('local'); // 'local' or 'supabase'
+
+// Load data from Supabase when user logs in
+useEffect(() => {
+  const loadSupabaseData = async () => {
+    if (currentUser && currentUser.tenantId) {
+      setIsLoadingData(true);
+      console.log('[Dashboard] Loading data from Supabase for tenant:', currentUser.tenantId);
+
+      const result = await supabaseData.loadDashboardData(currentUser.tenantId);
+
+      if (result.success && Object.keys(result.data).length > 0) {
+        console.log('[Dashboard] Loaded Supabase data:', Object.keys(result.data));
+        setClientsData(prevData => ({
+          ...prevData,
+          ...result.data,
+        }));
+        setSupabaseClients(result.clients || []);
+        setDataSource('supabase');
+
+        // Update clients list from Supabase
+        if (result.clients && result.clients.length > 0) {
+          setClientsList(result.clients.map(c => ({
+            id: c.slug,
+            dbId: c.id,
+            name: c.name,
+          })));
+          // Set first client as selected if current selection doesn't exist
+          if (!result.data[selectedClientId]) {
+            setSelectedClientId(result.clients[0].slug);
+          }
+        }
+      } else {
+        console.log('[Dashboard] No Supabase data, using local data');
+        setDataSource('local');
+      }
+
+      setIsLoadingData(false);
+    }
+  };
+
+  loadSupabaseData();
+}, [currentUser]);
 
   // Selection state
   const [selectedClientId, setSelectedClientId] = useState('hybrid-medical');
@@ -26862,56 +26909,103 @@ function PrysmCSDashboardContent() {
   }, [formData, selectedClientId, selectedMonth]);
 
   // Save data to localStorage whenever clientsData changes
-  const saveAllData = (newFormData, newStories, newOpportunities, newClientInfo) => {
-    // Use passed data if available, otherwise fall back to state
-    const dataToSave = newFormData || formData;
-    const storiesToSave = newStories || stories;
-    const opportunitiesToSave = newOpportunities || opportunities;
-    const clientInfoToSave = newClientInfo || clientInfo;
-    
-    // Update local state with the saved data
-    if (newFormData) setFormData(newFormData);
-    if (newStories) setStories(newStories);
-    if (newOpportunities) setOpportunities(newOpportunities);
-    if (newClientInfo) setClientInfo(newClientInfo);
-    
-    // Update current selections into clientsData
-    const updatedClientsData = {
-      ...clientsData,
-      [selectedClientId]: {
-        ...clientsData[selectedClientId],
-        clientInfo: clientInfoToSave,
-        monthlyData: {
-          ...clientsData[selectedClientId].monthlyData,
-          [selectedMonth]: dataToSave,
-        },
-        stories: {
-          ...clientsData[selectedClientId].stories,
-          [selectedMonth]: storiesToSave,
-        },
-        opportunities: {
-          ...clientsData[selectedClientId].opportunities,
-          [selectedMonth]: opportunitiesToSave,
-        },
+  // Save data to localStorage and Supabase
+const saveAllData = async (newFormData, newStories, newOpportunities, newClientInfo) => {
+  // Use passed data if available, otherwise fall back to state
+  const dataToSave = newFormData || formData;
+  const storiesToSave = newStories || stories;
+  const opportunitiesToSave = newOpportunities || opportunities;
+  const clientInfoToSave = newClientInfo || clientInfo;
+
+  // Update local state with the saved data
+  if (newFormData) setFormData(newFormData);
+  if (newStories) setStories(newStories);
+  if (newOpportunities) setOpportunities(newOpportunities);
+  if (newClientInfo) setClientInfo(newClientInfo);
+
+  // Update current selections into clientsData
+  const updatedClientsData = {
+    ...clientsData,
+    [selectedClientId]: {
+      ...clientsData[selectedClientId],
+      clientInfo: clientInfoToSave,
+      monthlyData: {
+        ...(clientsData[selectedClientId]?.monthlyData || {}),
+        [selectedMonth]: dataToSave,
       },
-    };
-    
-    setClientsData(updatedClientsData);
-    saveToStorage(updatedClientsData);
-    setHasUnsavedChanges(false);
-    
-    // Audit log the data change
-    logPHIAccess(AUDIT_ACTIONS.EDIT_PHI, {
-      resource: 'client_data',
-      clientId: selectedClientId,
-      month: selectedMonth,
-      action: 'saved_monthly_data'
-    });
-    
-    // Show toast
-    setShowSaveToast(true);
-    setTimeout(() => setShowSaveToast(false), 3000);
+      stories: {
+        ...(clientsData[selectedClientId]?.stories || {}),
+        [selectedMonth]: storiesToSave,
+      },
+      opportunities: {
+        ...(clientsData[selectedClientId]?.opportunities || {}),
+        [selectedMonth]: opportunitiesToSave,
+      },
+    },
   };
+
+  setClientsData(updatedClientsData);
+  saveToStorage(updatedClientsData);
+
+  // Save to Supabase if user is logged in
+  if (currentUser && currentUser.tenantId) {
+    const clientDbId = clientsData[selectedClientId]?.dbId;
+
+    if (clientDbId) {
+      console.log('[Dashboard] Saving to Supabase...');
+
+      // Save monthly data
+      const monthlyResult = await supabaseData.saveMonthlyDataToSupabase(
+        currentUser.tenantId,
+        clientDbId,
+        selectedMonth,
+        dataToSave
+      );
+
+      if (monthlyResult.success) {
+        console.log('[Dashboard] Monthly data saved to Supabase');
+      } else {
+        console.error('[Dashboard] Failed to save monthly data:', monthlyResult.error);
+      }
+
+      // Save stories
+      for (const story of storiesToSave) {
+        await supabaseData.saveStoryToSupabase(
+          currentUser.tenantId,
+          clientDbId,
+          selectedMonth,
+          story
+        );
+      }
+
+      // Save opportunities
+      for (const opp of opportunitiesToSave) {
+        await supabaseData.saveOpportunityToSupabase(
+          currentUser.tenantId,
+          clientDbId,
+          selectedMonth,
+          opp
+        );
+      }
+
+      console.log('[Dashboard] All data saved to Supabase');
+    }
+  }
+
+  setHasUnsavedChanges(false);
+
+  // Audit log the data change
+  logPHIAccess(AUDIT_ACTIONS.EDIT_PHI, {
+    resource: 'client_data',
+    clientId: selectedClientId,
+    month: selectedMonth,
+    action: 'saved_monthly_data'
+  });
+
+  // Show toast
+  setShowSaveToast(true);
+  setTimeout(() => setShowSaveToast(false), 3000);
+};
 
   // Handle client switching
   const handleClientChange = (newClientId) => {

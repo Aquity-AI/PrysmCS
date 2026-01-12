@@ -220,6 +220,266 @@ export const supabaseData = {
       console.error('[SupabaseData] Error logging audit:', error);
     }
   },
+
+  // ============================================================
+  // Load all data for dashboard
+  // ============================================================
+  async loadDashboardData(tenantId) {
+    try {
+      // Get all client accounts
+      const { data: clients, error: clientsError } = await supabase
+        .from('client_accounts')
+        .select('*')
+        .eq('tenant_id', tenantId)
+        .order('name');
+
+      if (clientsError) throw clientsError;
+
+      // Get all monthly data
+      const { data: monthlyData, error: monthlyError } = await supabase
+        .from('monthly_data')
+        .select('*')
+        .eq('tenant_id', tenantId);
+
+      if (monthlyError) throw monthlyError;
+
+      // Get all stories
+      const { data: stories, error: storiesError } = await supabase
+        .from('stories')
+        .select('*')
+        .eq('tenant_id', tenantId);
+
+      if (storiesError) throw storiesError;
+
+      // Get all opportunities
+      const { data: opportunities, error: oppError } = await supabase
+        .from('opportunities')
+        .select('*')
+        .eq('tenant_id', tenantId);
+
+      if (oppError) throw oppError;
+
+      // Convert to frontend format
+      const clientsData = {};
+
+      for (const client of clients) {
+        const clientMonthlyData = {};
+        const clientStories = {};
+        const clientOpportunities = {};
+
+        // Group monthly data by month
+        monthlyData
+          .filter(m => m.client_account_id === client.id)
+          .forEach(m => {
+            clientMonthlyData[m.month_key] = m.metric_values || {};
+          });
+
+        // Group stories by month
+        stories
+          .filter(s => s.client_account_id === client.id)
+          .forEach(s => {
+            if (!clientStories[s.month_key]) clientStories[s.month_key] = [];
+            clientStories[s.month_key].push({
+              id: s.display_order + 1,
+              dbId: s.id,
+              title: s.title,
+              quote: s.content,
+              patientType: s.category,
+            });
+          });
+
+        // Group opportunities by month
+        opportunities
+          .filter(o => o.client_account_id === client.id)
+          .forEach(o => {
+            if (!clientOpportunities[o.month_key]) clientOpportunities[o.month_key] = [];
+            clientOpportunities[o.month_key].push({
+              id: o.display_order + 1,
+              dbId: o.id,
+              title: o.title,
+              description: o.description,
+              priority: o.display_order + 1,
+            });
+          });
+
+        clientsData[client.slug] = {
+          id: client.slug,
+          dbId: client.id,
+          clientInfo: {
+            clientName: client.name,
+            address: client.address || '',
+            phone: client.contact_phone || '',
+            email: client.contact_email || '',
+            contactName: client.contact_name || '',
+            website: '',
+            stakeholders: [],
+            csmAssigned: { name: '', email: '', phone: '' },
+            careManagementCoordinator: { name: '', email: '', phone: '' },
+            enrollmentSpecialists: [],
+            providers: [],
+            ...client.settings,
+          },
+          monthlyData: clientMonthlyData,
+          stories: clientStories,
+          opportunities: clientOpportunities,
+        };
+      }
+
+      return { success: true, data: clientsData, clients };
+    } catch (error) {
+      console.error('[SupabaseData] Error loading dashboard data:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Save monthly data to Supabase
+  async saveMonthlyDataToSupabase(tenantId, clientDbId, monthKey, metricValues) {
+    try {
+      const { data, error } = await supabase
+        .from('monthly_data')
+        .upsert({
+          tenant_id: tenantId,
+          client_account_id: clientDbId,
+          month_key: monthKey,
+          metric_values: metricValues,
+          status: 'draft',
+        }, {
+          onConflict: 'client_account_id,month_key',
+        })
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('[SupabaseData] Error saving monthly data:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Save story to Supabase
+  async saveStoryToSupabase(tenantId, clientDbId, monthKey, story) {
+    try {
+      const storyData = {
+        tenant_id: tenantId,
+        client_account_id: clientDbId,
+        month_key: monthKey,
+        title: story.title,
+        content: story.quote || story.content,
+        category: story.patientType || story.category,
+        display_order: (story.id || 1) - 1,
+      };
+
+      if (story.dbId) {
+        storyData.id = story.dbId;
+      }
+
+      const { data, error } = await supabase
+        .from('stories')
+        .upsert(storyData)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('[SupabaseData] Error saving story:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Save opportunity to Supabase
+  async saveOpportunityToSupabase(tenantId, clientDbId, monthKey, opportunity) {
+    try {
+      const oppData = {
+        tenant_id: tenantId,
+        client_account_id: clientDbId,
+        month_key: monthKey,
+        title: opportunity.title,
+        description: opportunity.description,
+        display_order: (opportunity.priority || opportunity.id || 1) - 1,
+        status: 'identified',
+      };
+
+      if (opportunity.dbId) {
+        oppData.id = opportunity.dbId;
+      }
+
+      const { data, error } = await supabase
+        .from('opportunities')
+        .upsert(oppData)
+        .select()
+        .single();
+
+      if (error) throw error;
+      return { success: true, data };
+    } catch (error) {
+      console.error('[SupabaseData] Error saving opportunity:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Delete story
+  async deleteStoryFromSupabase(storyId) {
+    try {
+      const { error } = await supabase
+        .from('stories')
+        .delete()
+        .eq('id', storyId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error('[SupabaseData] Error deleting story:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Delete opportunity
+  async deleteOpportunityFromSupabase(oppId) {
+    try {
+      const { error } = await supabase
+        .from('opportunities')
+        .delete()
+        .eq('id', oppId);
+
+      if (error) throw error;
+      return { success: true };
+    } catch (error) {
+      console.error('[SupabaseData] Error deleting opportunity:', error);
+      return { success: false, error: error.message };
+    }
+  },
+
+  // Export data as CSV
+  async exportDataAsCSV(tenantId) {
+    try {
+      const { data: monthlyData, error } = await supabase
+        .from('monthly_data')
+        .select(`
+          *,
+          client:client_accounts(name, slug)
+        `)
+        .eq('tenant_id', tenantId)
+        .order('month_key', { ascending: false });
+
+      if (error) throw error;
+
+      // Convert to CSV format
+      const rows = monthlyData.map(row => ({
+        client_name: row.client?.name,
+        client_slug: row.client?.slug,
+        month: row.month_key,
+        status: row.status,
+        ...row.metric_values,
+      }));
+
+      return { success: true, data: rows };
+    } catch (error) {
+      console.error('[SupabaseData] Error exporting data:', error);
+      return { success: false, error: error.message };
+    }
+  },
 };
 
 export default { auth: supabaseAuth, data: supabaseData };
