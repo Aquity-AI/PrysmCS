@@ -9,7 +9,7 @@ import {
 import { LayoutDashboard, Users, DollarSign, Heart, MessageSquare, Lightbulb, ChevronRight, ChevronLeft, TrendingUp, Activity, Calendar, Download, Building2, Clock, Settings, Save, CheckCircle, HelpCircle, AlertCircle, Mail, Phone, FileText, Lock, LogOut, Shield, Eye, EyeOff, UserCheck, ClipboardList, AlertTriangle, Palette, Image, Type, GripVertical, ToggleLeft, ToggleRight, RefreshCw, Upload, Trash2, Plus, Minus, X, ChevronUp, ChevronDown, Bell, BellRing, Zap, Target, UserCog, ArrowLeft, CreditCard as Edit3, Star, Award, Briefcase, PieChart, BarChart2, Grid2x2 as Grid, LayoutGrid as Layout, Building, Layers, Copy, Move, Maximize2, Minimize2, CreditCard as Edit2, Pencil, RotateCcw } from "lucide-react";
 import { supabase, supabaseAuth, supabaseData } from '../lib/supabaseAuth';
 // Log initialization for debugging
-console.log('[PrysmCS] Initializing with Supabase URL:', supabaseUrl.substring(0, 30) + '...');
+
 
 // ============================================================
 // AUTHENTICATION & AUTHORIZATION SYSTEM
