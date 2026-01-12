@@ -7,12 +7,7 @@ import {
   RadialBarChart, RadialBar, ComposedChart, Scatter
 } from "recharts";
 import { LayoutDashboard, Users, DollarSign, Heart, MessageSquare, Lightbulb, ChevronRight, ChevronLeft, TrendingUp, Activity, Calendar, Download, Building2, Clock, Settings, Save, CheckCircle, HelpCircle, AlertCircle, Mail, Phone, FileText, Lock, LogOut, Shield, Eye, EyeOff, UserCheck, ClipboardList, AlertTriangle, Palette, Image, Type, GripVertical, ToggleLeft, ToggleRight, RefreshCw, Upload, Trash2, Plus, Minus, X, ChevronUp, ChevronDown, Bell, BellRing, Zap, Target, UserCog, ArrowLeft, CreditCard as Edit3, Star, Award, Briefcase, PieChart, BarChart2, Grid2x2 as Grid, LayoutGrid as Layout, Building, Layers, Copy, Move, Maximize2, Minimize2, CreditCard as Edit2, Pencil, RotateCcw } from "lucide-react";
-import { createClient } from '@supabase/supabase-js';
-
-const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
-const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
-const supabase = createClient(supabaseUrl, supabaseAnonKey);
-
+import { supabase, supabaseAuth, supabaseData } from '../lib/supabaseAuth';
 // Log initialization for debugging
 console.log('[PrysmCS] Initializing with Supabase URL:', supabaseUrl.substring(0, 30) + '...');
 
@@ -3576,248 +3571,224 @@ function AuthProvider({ children }) {
   console.log('[PrysmCS] AuthProvider mounting');
   const [currentUser, setCurrentUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
   const [sessionExpiry, setSessionExpiry] = useState(null);
   const [showTimeoutWarning, setShowTimeoutWarning] = useState(false);
-  const [failedAttempts, setFailedAttempts] = useState({});
 
-  // Check for existing session on mount - uses DAL authClient
   useEffect(() => {
     const loadSession = async () => {
       try {
-        // Use DAL to get session (supports future remote auth)
-        const session = await authClient.getSession();
-        if (session && new Date(session.expiry) > new Date()) {
-          setCurrentUser(session.user);
+        console.log('[Auth] Checking for existing session...');
+        const user = await supabaseAuth.getCurrentUser();
+
+        if (user && user.status === 'active') {
+          console.log('[Auth] Found existing session for:', user.email);
+          setCurrentUser(user);
           setIsAuthenticated(true);
-          setSessionExpiry(new Date(session.expiry));
-        } else if (session) {
-          // Session expired
-          handleSessionTimeout();
+          const expiry = new Date(Date.now() + SESSION_CONFIG.timeoutMinutes * 60 * 1000);
+          setSessionExpiry(expiry);
+        } else {
+          console.log('[Auth] No active session found');
         }
       } catch (e) {
         console.warn('[Auth] Failed to load session:', e);
-        await authClient.logout();
+      } finally {
+        setIsLoading(false);
       }
     };
+
     loadSession();
+
+    const { data: { subscription } } = supabaseAuth.onAuthStateChange(async (event, session) => {
+      console.log('[Auth] Auth state changed:', event);
+
+      if (event === 'SIGNED_OUT') {
+        setCurrentUser(null);
+        setIsAuthenticated(false);
+        setSessionExpiry(null);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
   }, []);
-  
-  // Session timeout checker
+
   useEffect(() => {
     if (!isAuthenticated || !sessionExpiry) return;
-    
+
     const checkSession = setInterval(() => {
       const now = new Date();
       const timeLeft = sessionExpiry - now;
       const warningThreshold = SESSION_CONFIG.warningMinutes * 60 * 1000;
-      
+
       if (timeLeft <= 0) {
         handleSessionTimeout();
       } else if (timeLeft <= warningThreshold && !showTimeoutWarning) {
         setShowTimeoutWarning(true);
       }
     }, 1000);
-    
+
     return () => clearInterval(checkSession);
   }, [isAuthenticated, sessionExpiry, showTimeoutWarning]);
-  
-  // Activity listener to extend session
+
   useEffect(() => {
     if (!isAuthenticated) return;
-    
+
     const resetTimer = () => {
       if (isAuthenticated) {
         extendSession();
         setShowTimeoutWarning(false);
       }
     };
-    
+
     window.addEventListener('mousedown', resetTimer);
     window.addEventListener('keydown', resetTimer);
-    
+
     return () => {
       window.removeEventListener('mousedown', resetTimer);
       window.removeEventListener('keydown', resetTimer);
     };
   }, [isAuthenticated]);
-  
+
   const extendSession = async () => {
     const newExpiry = new Date(Date.now() + SESSION_CONFIG.timeoutMinutes * 60 * 1000);
     setSessionExpiry(newExpiry);
-    
+  };
+
+  const handleSessionTimeout = async () => {
     if (currentUser) {
-      // Use DAL to persist session
-      await authClient.saveSession({
-        user: currentUser,
-        expiry: newExpiry.toISOString()
-      });
+      await supabaseData.logAudit(
+        currentUser.tenantId,
+        AUDIT_ACTIONS.SESSION_TIMEOUT,
+        { reason: 'Inactivity timeout' },
+        currentUser
+      );
     }
+    await logout();
   };
-  
-  const handleSessionTimeout = () => {
-    createAuditEntry(AUDIT_ACTIONS.SESSION_TIMEOUT, {
-      reason: 'Inactivity timeout'
-    }, currentUser);
-    
-    logout();
-  };
-  
+
   const login = async (email, password) => {
-    const lowerEmail = email.toLowerCase().trim();
-    
-    // Check for account lockout
-    const attempts = failedAttempts[lowerEmail] || { count: 0, lockUntil: null };
-    if (attempts.lockUntil && new Date(attempts.lockUntil) > new Date()) {
-      const minutesLeft = Math.ceil((new Date(attempts.lockUntil) - new Date()) / 60000);
-      createAuditEntry(AUDIT_ACTIONS.LOGIN_FAILED, {
-        email: lowerEmail,
-        reason: 'Account locked',
-        minutesLeft
-      });
-      return { 
-        success: false, 
-        error: `Account locked. Try again in ${minutesLeft} minutes.` 
-      };
-    }
-    
-    // Check if we should use remote auth via DAL
-    if (DAL_CONFIG.features.useRemoteAuth) {
-      try {
-        const result = await authClient.login({ email: lowerEmail, password });
-        if (result.success && result.user) {
-          setCurrentUser(result.user);
-          setSessionExpiry(new Date(result.expiry));
-          setShowTimeoutWarning(false);
-          setIsAuthenticated(true);
-          return { success: true };
-        }
-        return result;
-      } catch (e) {
-        console.warn('[Auth] Remote login failed:', e);
-        // Fall through to local auth if offline support is enabled
-        if (!DAL_CONFIG.features.offlineSupport) {
-          return { success: false, error: 'Authentication service unavailable' };
-        }
+    console.log('[Auth] Attempting login for:', email);
+
+    try {
+      const result = await supabaseAuth.signIn(email, password);
+
+      if (!result.success) {
+        console.log('[Auth] Login failed:', result.error);
+        createAuditEntry(AUDIT_ACTIONS.LOGIN_FAILED, {
+          email: email.toLowerCase(),
+          reason: result.error
+        });
+        return { success: false, error: result.error };
       }
-    }
-    
-    // Local authentication (current behavior)
-    const user = usersDatabase[lowerEmail];
-    
-    if (!user || user.password !== password) {
-      // Track failed attempt
-      const newCount = (attempts.count || 0) + 1;
-      const newAttempts = { ...failedAttempts };
-      
-      if (newCount >= SESSION_CONFIG.maxFailedAttempts) {
-        newAttempts[lowerEmail] = {
-          count: newCount,
-          lockUntil: new Date(Date.now() + SESSION_CONFIG.lockoutMinutes * 60 * 1000).toISOString()
-        };
-      } else {
-        newAttempts[lowerEmail] = { count: newCount, lockUntil: null };
+
+      console.log('[Auth] Login successful for:', result.user.email);
+
+      if (result.user.status !== 'active') {
+        await supabaseAuth.signOut();
+        return { success: false, error: 'Account is inactive. Contact administrator.' };
       }
-      
-      setFailedAttempts(newAttempts);
-      
-      createAuditEntry(AUDIT_ACTIONS.LOGIN_FAILED, {
-        email: lowerEmail,
-        reason: 'Invalid credentials',
-        attemptNumber: newCount
-      });
-      
-      return { 
-        success: false, 
-        error: `Invalid email or password. ${SESSION_CONFIG.maxFailedAttempts - newCount} attempts remaining.`
-      };
+
+      await supabaseData.logAudit(
+        result.user.tenantId,
+        AUDIT_ACTIONS.LOGIN,
+        { email: result.user.email, role: result.user.role },
+        result.user
+      );
+
+      const expiry = new Date(Date.now() + SESSION_CONFIG.timeoutMinutes * 60 * 1000);
+
+      setCurrentUser(result.user);
+      setSessionExpiry(expiry);
+      setShowTimeoutWarning(false);
+      setIsAuthenticated(true);
+
+      return { success: true };
+    } catch (error) {
+      console.error('[Auth] Login error:', error);
+      return { success: false, error: 'An error occurred during login' };
     }
-    
-    if (user.status !== 'active') {
-      createAuditEntry(AUDIT_ACTIONS.LOGIN_FAILED, {
-        email: lowerEmail,
-        reason: 'Account inactive'
-      });
-      return { success: false, error: 'Account is inactive. Contact administrator.' };
-    }
-    
-    // Successful login
-    const sessionUser = { ...user };
-    delete sessionUser.password; // Never store password in session
-    
-    const expiry = new Date(Date.now() + SESSION_CONFIG.timeoutMinutes * 60 * 1000);
-    
-    // Clear failed attempts
-    const newAttempts = { ...failedAttempts };
-    delete newAttempts[lowerEmail];
-    setFailedAttempts(newAttempts);
-    
-    // Save session via DAL
-    await authClient.saveSession({
-      user: sessionUser,
-      expiry: expiry.toISOString()
-    });
-    
-    // Update last login
-    usersDatabase[lowerEmail].lastLogin = new Date().toISOString();
-    
-    createAuditEntry(AUDIT_ACTIONS.LOGIN, {
-      email: lowerEmail,
-      role: user.role
-    }, sessionUser);
-    
-    // Update state last to trigger re-render
-    setCurrentUser(sessionUser);
-    setSessionExpiry(expiry);
-    setShowTimeoutWarning(false);
-    setIsAuthenticated(true);
-    
-    return { success: true };
   };
-  
+
   const logout = async () => {
     if (currentUser) {
-      createAuditEntry(AUDIT_ACTIONS.LOGOUT, {}, currentUser);
+      await supabaseData.logAudit(
+        currentUser.tenantId,
+        AUDIT_ACTIONS.LOGOUT,
+        {},
+        currentUser
+      );
     }
-    
+
     setCurrentUser(null);
     setIsAuthenticated(false);
     setSessionExpiry(null);
     setShowTimeoutWarning(false);
-    
-    // Use DAL to clear session
-    await authClient.logout();
+
+    await supabaseAuth.signOut();
   };
-  
+
   const hasPermission = (permission) => {
     if (!currentUser) return false;
     const role = ROLES[currentUser.role];
     return role?.permissions.includes(permission) || false;
   };
-  
+
   const canAccessClient = (clientId) => {
     if (!currentUser) return false;
-    if (currentUser.assignedClients.includes('all')) return true;
-    return currentUser.assignedClients.includes(clientId);
+    if (currentUser.canAccessAllClients) return true;
+    if (currentUser.role === 'admin') return true;
+    return currentUser.assignedClients?.includes(clientId) || false;
   };
-  
-  const logPHIAccess = (action, details) => {
+
+  const logPHIAccess = async (action, details) => {
+    if (currentUser) {
+      await supabaseData.logAudit(
+        currentUser.tenantId,
+        action,
+        details,
+        currentUser
+      );
+    }
     createAuditEntry(action, details, currentUser);
   };
-  
+
+  const value = {
+    currentUser,
+    isAuthenticated,
+    isLoading,
+    sessionExpiry,
+    showTimeoutWarning,
+    login,
+    logout,
+    hasPermission,
+    canAccessClient,
+    extendSession,
+    logPHIAccess,
+    setShowTimeoutWarning,
+    AUDIT_ACTIONS,
+    SESSION_CONFIG
+  };
+
+  if (isLoading) {
+    return (
+      <div style={{
+        display: 'flex',
+        justifyContent: 'center',
+        alignItems: 'center',
+        height: '100vh',
+        background: 'linear-gradient(135deg, #0d9488 0%, #14b8a6 50%, #2dd4bf 100%)'
+      }}>
+        <div style={{ textAlign: 'center', color: 'white' }}>
+          <div style={{ fontSize: '24px', marginBottom: '16px' }}>Loading...</div>
+        </div>
+      </div>
+    );
+  }
+
   return (
-    <AuthContext.Provider value={{
-      currentUser,
-      isAuthenticated,
-      sessionExpiry,
-      showTimeoutWarning,
-      login,
-      logout,
-      hasPermission,
-      canAccessClient,
-      extendSession,
-      logPHIAccess,
-      ROLES
-    }}>
+    <AuthContext.Provider value={value}>
       {children}
     </AuthContext.Provider>
   );
