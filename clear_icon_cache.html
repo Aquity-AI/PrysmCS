@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Clear Icon Cache - Debug Utility</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        h1 {
+            color: #1e293b;
+            margin-bottom: 10px;
+        }
+        p {
+            color: #64748b;
+            margin-bottom: 20px;
+        }
+        button {
+            background: #3b82f6;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            margin-right: 10px;
+            margin-bottom: 10px;
+        }
+        button:hover {
+            background: #2563eb;
+        }
+        button.danger {
+            background: #ef4444;
+        }
+        button.danger:hover {
+            background: #dc2626;
+        }
+        .output {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .success {
+            color: #10b981;
+            font-weight: 600;
+        }
+        .warning {
+            color: #f59e0b;
+            font-weight: 600;
+        }
+        .info {
+            color: #3b82f6;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Icon Cache Debug Utility</h1>
+        <p>This utility helps diagnose and fix the Key Metric 2 icon reversion issue by inspecting and clearing localStorage cache.</p>
+
+        <div>
+            <button onclick="inspectCache()">Inspect localStorage</button>
+            <button onclick="findKeyMetric2Icon()">Find Key Metric 2 Icon</button>
+            <button onclick="clearCustomization()" class="danger">Clear Customization Cache</button>
+            <button onclick="fixKeyMetric2Icon()">Fix Key Metric 2 Icon</button>
+        </div>
+
+        <div id="output" class="output"></div>
+    </div>
+
+    <script>
+        const STORAGE_KEYS = {
+            CUSTOMIZATION: 'medkick_customization',
+            CLIENTS_DATA: 'medkick_dashboard_data',
+            SESSION: 'medkick_session',
+        };
+
+        function log(message, type = 'info') {
+            const output = document.getElementById('output');
+            const className = type === 'success' ? 'success' : type === 'warning' ? 'warning' : 'info';
+            output.innerHTML += `<span class="${className}">[${type.toUpperCase()}]</span> ${message}\n`;
+            output.scrollTop = output.scrollHeight;
+        }
+
+        function clearOutput() {
+            document.getElementById('output').innerHTML = '';
+        }
+
+        function inspectCache() {
+            clearOutput();
+            log('Inspecting localStorage...');
+
+            try {
+                const customization = localStorage.getItem(STORAGE_KEYS.CUSTOMIZATION);
+
+                if (!customization) {
+                    log('No customization data found in localStorage', 'warning');
+                    return;
+                }
+
+                const data = JSON.parse(customization);
+                log('Found customization data:', 'success');
+                log(JSON.stringify(data, null, 2));
+
+                if (data.formSchema && data.formSchema.sections) {
+                    log('\nSearching for keyMetric2 field...');
+                    let found = false;
+
+                    data.formSchema.sections.forEach(section => {
+                        if (section.fields) {
+                            section.fields.forEach(field => {
+                                if (field.id === 'keyMetric2' || field.metricId === 'keyMetric2') {
+                                    found = true;
+                                    log(`Found keyMetric2 in section "${section.id}":`, 'success');
+                                    log(JSON.stringify(field, null, 2));
+                                }
+                            });
+                        }
+                    });
+
+                    if (!found) {
+                        log('keyMetric2 field not found in any section', 'warning');
+                    }
+                } else {
+                    log('No formSchema found in customization data', 'warning');
+                }
+            } catch (err) {
+                log(`Error inspecting cache: ${err.message}`, 'warning');
+            }
+        }
+
+        function findKeyMetric2Icon() {
+            clearOutput();
+            log('Searching for Key Metric 2 icon...');
+
+            try {
+                const customization = localStorage.getItem(STORAGE_KEYS.CUSTOMIZATION);
+
+                if (!customization) {
+                    log('No customization data found', 'warning');
+                    return;
+                }
+
+                const data = JSON.parse(customization);
+
+                if (!data.formSchema || !data.formSchema.sections) {
+                    log('No form schema found', 'warning');
+                    return;
+                }
+
+                let found = false;
+
+                data.formSchema.sections.forEach(section => {
+                    if (section.fields) {
+                        section.fields.forEach(field => {
+                            if (field.id === 'keyMetric2' || field.metricId === 'keyMetric2') {
+                                found = true;
+                                const icon = field.icon || 'NOT SET';
+                                log(`Key Metric 2 icon: ${icon}`, 'success');
+                                log(`Section: ${section.id}`);
+                                log(`Full field data:`, 'info');
+                                log(JSON.stringify(field, null, 2));
+                            }
+                        });
+                    }
+                });
+
+                if (!found) {
+                    log('Key Metric 2 field not found in customization', 'warning');
+                }
+            } catch (err) {
+                log(`Error: ${err.message}`, 'warning');
+            }
+        }
+
+        function clearCustomization() {
+            if (!confirm('This will clear ALL customization data from localStorage. Are you sure?')) {
+                return;
+            }
+
+            clearOutput();
+            log('Clearing customization cache...');
+
+            try {
+                localStorage.removeItem(STORAGE_KEYS.CUSTOMIZATION);
+                log('Customization cache cleared successfully!', 'success');
+                log('Please refresh the main application to reset to default configuration.');
+            } catch (err) {
+                log(`Error clearing cache: ${err.message}`, 'warning');
+            }
+        }
+
+        function fixKeyMetric2Icon() {
+            clearOutput();
+            log('Attempting to fix Key Metric 2 icon...');
+
+            try {
+                const customization = localStorage.getItem(STORAGE_KEYS.CUSTOMIZATION);
+
+                if (!customization) {
+                    log('No customization data found - nothing to fix', 'warning');
+                    return;
+                }
+
+                const data = JSON.parse(customization);
+
+                if (!data.formSchema || !data.formSchema.sections) {
+                    log('No form schema found - nothing to fix', 'warning');
+                    return;
+                }
+
+                let fixed = false;
+
+                data.formSchema.sections.forEach(section => {
+                    if (section.fields) {
+                        section.fields.forEach(field => {
+                            if (field.id === 'keyMetric2' || field.metricId === 'keyMetric2') {
+                                const oldIcon = field.icon || 'NOT SET';
+                                // Remove the icon property to force default
+                                delete field.icon;
+                                fixed = true;
+                                log(`Removed icon from keyMetric2 (was: ${oldIcon})`, 'success');
+                                log(`Field will now use the default icon for its category`);
+                            }
+                        });
+                    }
+                });
+
+                if (fixed) {
+                    localStorage.setItem(STORAGE_KEYS.CUSTOMIZATION, JSON.stringify(data));
+                    log('\nCustomization updated and saved!', 'success');
+                    log('Please refresh the main application to see changes.');
+                } else {
+                    log('Key Metric 2 field not found - nothing to fix', 'warning');
+                }
+            } catch (err) {
+                log(`Error fixing icon: ${err.message}`, 'warning');
+            }
+        }
+    </script>
+</body>
+</html>
