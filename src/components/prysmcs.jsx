@@ -19,6 +19,7 @@ import { IconPickerDropdown } from './IconPickerDropdown';
 import { DeletedAccountsPanel } from './settings/DeletedAccountsPanel';
 import { EditLayoutProvider, EditLayoutButton, DashboardGraphGrid, SavedGraphsList, useEditLayout } from './dashboard-graphs';
 import { invalidateBrandingPaletteCache } from './dashboard-graphs/brandingPalette';
+import { SignInCard } from './SignInCard';
 import { MetricsManager } from './metrics-management';
 import { PDFReportModal as DynamicPDFReportModal } from './report';
 import {
@@ -3816,33 +3817,18 @@ function AuthProvider({ children }) {
 
 function LoginPage({ onLogin }) {
   console.log('[PrysmCS] LoginPage rendering');
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const { customization } = useCustomization();
   const branding = customization.branding;
-  console.log('[PrysmCS] LoginPage branding:', branding);
-  
-  // Determine the background - use sidebar bg, or create gradient from brand colors
-  const pageBackground = branding.sidebarBg || 
-    `linear-gradient(135deg, ${branding.secondaryColor || '#0d9488'} 0%, ${branding.primaryColor || '#14b8a6'} 50%, ${branding.accentColor || '#5eead4'} 100%)`;
-  
-  const headerBackground = branding.sidebarBg || 
-    `linear-gradient(135deg, ${branding.secondaryColor || '#0d9488'}, ${branding.primaryColor || '#14b8a6'})`;
-  
-  const handleSubmit = async () => {
-    if (isLoading || !email || !password) return;
-    
+
+  const handleSubmit = async (email, password) => {
     setError('');
     setIsLoading(true);
-    
     try {
       const result = await login(email, password);
       setIsLoading(false);
-      
       if (!result.success) {
         setError(result.error);
       }
@@ -3851,14 +3837,10 @@ function LoginPage({ onLogin }) {
       setError('An error occurred. Please try again.');
     }
   };
-  
-  const quickLogin = async (demoEmail, demoPassword) => {
-    setEmail(demoEmail);
-    setPassword(demoPassword);
+
+  const handleQuickLogin = async (demoEmail, demoPassword) => {
     setError('');
     setIsLoading(true);
-    
-    // Small delay to show the credentials being filled in
     setTimeout(async () => {
       try {
         const result = await login(demoEmail, demoPassword);
@@ -3872,133 +3854,15 @@ function LoginPage({ onLogin }) {
       }
     }, 300);
   };
-  
-  return (
-    <div className="login-page" style={{ background: pageBackground }}>
-      <div className="login-container">
-        <div className="login-header" style={{ background: headerBackground }}>
-          {branding.logoMode === 'full-image' && branding.logoUrl ? (
-            // Full image mode - just show the uploaded logo
-            <img 
-              src={branding.logoUrl} 
-              alt={branding.platformName} 
-              style={{ maxWidth: 200, maxHeight: 60, objectFit: 'contain', marginBottom: 16 }} 
-            />
-          ) : (
-            // Icon + text modes (default or icon-text)
-            <div className="login-logo" style={{ background: `linear-gradient(135deg, ${branding.primaryColor}, ${branding.secondaryColor})` }}>
-              {branding.logoMode === 'icon-text' && branding.logoUrl ? (
-                <img src={branding.logoUrl} alt="" style={{ maxWidth: 48, maxHeight: 48, objectFit: 'contain' }} />
-              ) : (
-                <Shield size={48} />
-              )}
-            </div>
-          )}
-          {branding.logoMode !== 'full-image' && (
-            <h1 style={{ fontFamily: `'${branding.fontFamily || 'DM Sans'}', sans-serif` }}>{branding.platformName} Dashboard</h1>
-          )}
-        </div>
-        
-        <form className="login-form" onSubmit={(e) => e.preventDefault()}>
-          {error && (
-            <div className="login-error">
-              <AlertTriangle size={16} />
-              {error}
-            </div>
-          )}
-          
-          <div className="login-field">
-            <label>Email Address</label>
-            <div className="login-input-wrapper">
-              <Mail size={18} />
-              <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Enter your email"
-                autoComplete="email"
-              />
-            </div>
-          </div>
-          
-          <div className="login-field">
-            <label>Password</label>
-            <div className="login-input-wrapper has-toggle">
-              <Lock size={18} />
-              <input
-                type={showPassword ? 'text' : 'password'}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="Enter your password"
-                autoComplete="current-password"
-              />
-              <button
-                type="button"
-                className="login-password-toggle"
-                onClick={() => setShowPassword(!showPassword)}
-                title={showPassword ? 'Hide password' : 'Show password'}
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-          </div>
-          
-          <button 
-            type="button"
-            className="login-submit"
-            disabled={isLoading || !email || !password}
-            onClick={handleSubmit}
-            style={{
-              width: '100%',
-              padding: '14px',
-              background: `linear-gradient(135deg, ${branding.secondaryColor}, ${branding.primaryColor})`,
-              color: 'white',
-              border: 'none',
-              borderRadius: '8px',
-              fontSize: '16px',
-              fontWeight: '600',
-              cursor: (isLoading || !email || !password) ? 'not-allowed' : 'pointer',
-              opacity: (isLoading || !email || !password) ? 0.7 : 1,
-            }}
-          >
-            {isLoading ? 'Signing in...' : 'Sign In'}
-          </button>
-        </form>
 
-        <div className="login-demo-credentials">
-          <p><strong>Quick Demo Login:</strong></p>
-          <div className="demo-buttons">
-            <button
-              type="button"
-              className="demo-login-btn admin"
-              onClick={() => quickLogin('admin@prysmcs.com', 'Admin123!')}
-              disabled={isLoading}
-            >
-              <span className="demo-btn-role">Admin</span>
-              <span className="demo-btn-desc">Full access</span>
-            </button>
-            <button
-              type="button"
-              className="demo-login-btn client"
-              onClick={() => quickLogin('account@prysmcs.com', 'Client123!')}
-              disabled={isLoading}
-            >
-              <span className="demo-btn-role">View Only</span>
-              <span className="demo-btn-desc">Read-only access</span>
-            </button>
-            <button
-              type="button"
-              className="demo-login-btn csm"
-              onClick={() => quickLogin('dataentry@prysmcs.com', 'Csm123!')}
-              disabled={isLoading}
-            >
-              <span className="demo-btn-role">Data Entry</span>
-              <span className="demo-btn-desc">Data management</span>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+  return (
+    <SignInCard
+      branding={branding}
+      onSubmit={handleSubmit}
+      onQuickLogin={handleQuickLogin}
+      isLoading={isLoading}
+      error={error}
+    />
   );
 }
 
