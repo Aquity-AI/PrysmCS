@@ -27159,9 +27159,13 @@ function PrysmCSDashboardContent() {
     }
   };
 
-  // Show login page if not authenticated
   if (!isAuthenticated) {
-    return <LoginPage />;
+    return (
+      <>
+        <style>{styles}</style>
+        <LoginPage />
+      </>
+    );
   }
 
   return (
