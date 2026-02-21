@@ -27161,12 +27161,7 @@ function PrysmCSDashboardContent() {
 
   // Show login page if not authenticated
   if (!isAuthenticated) {
-    return (
-      <>
-        <style>{styles}</style>
-        <LoginPage />
-      </>
-    );
+    return <LoginPage />;
   }
 
   return (
