@@ -245,51 +245,85 @@ const apiAdapter = DAL_CONFIG.features.useRemoteData
 // Auth Client
 // ============================================================
 // Handles authentication and session management.
-// Currently uses in-memory user database with localStorage session.
+// Currently uses in-memory user database with localStorage/sessionStorage session.
+// rememberMe=true -> localStorage (persists across browser close)
+// rememberMe=false -> sessionStorage (cleared on browser close)
+
+class SessionStorageAdapter {
+  async get(key) {
+    try {
+      const value = sessionStorage.getItem(key);
+      return value ? JSON.parse(value) : null;
+    } catch (e) {
+      return null;
+    }
+  }
+  async set(key, value) {
+    try {
+      sessionStorage.setItem(key, JSON.stringify(value));
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+  async remove(key) {
+    try {
+      sessionStorage.removeItem(key);
+      return { success: true };
+    } catch (e) {
+      return { success: false, error: e.message };
+    }
+  }
+}
+
+const sessionStorageAdapter = new SessionStorageAdapter();
 
 const authClient = {
-  /**
-   * Login with credentials
-   * @param {Object} credentials - { email, password }
-   * @returns {Promise<{success: boolean, user?: Object, error?: string}>}
-   */
+  _getSessionAdapter() {
+    try {
+      const flag = localStorage.getItem(STORAGE_KEYS.SESSION + '_remember');
+      return flag === 'true' ? storageAdapter : sessionStorageAdapter;
+    } catch {
+      return sessionStorageAdapter;
+    }
+  },
+
+  _setRememberFlag(rememberMe) {
+    try {
+      if (rememberMe) {
+        localStorage.setItem(STORAGE_KEYS.SESSION + '_remember', 'true');
+      } else {
+        localStorage.removeItem(STORAGE_KEYS.SESSION + '_remember');
+      }
+    } catch {}
+  },
+
   async login(credentials) {
     if (DAL_CONFIG.features.useRemoteAuth && apiAdapter) {
       try {
         const result = await apiAdapter.post(DAL_CONFIG.endpoints.auth + '/login', credentials);
         if (result.success && result.user) {
-          await storageAdapter.set(STORAGE_KEYS.SESSION, {
+          const adapter = this._getSessionAdapter();
+          await adapter.set(STORAGE_KEYS.SESSION, {
             user: result.user,
             expiry: result.expiry,
           });
         }
         return result;
       } catch (e) {
-        // Fallback to local auth if API fails and offline support is enabled
         if (DAL_CONFIG.features.offlineSupport) {
-          console.warn('[DAL] Remote auth failed, falling back to local');
           return this._localLogin(credentials);
         }
         return { success: false, error: 'Authentication service unavailable' };
       }
     }
-    // Use local authentication (handled by AuthProvider for now)
     return this._localLogin(credentials);
   },
 
-  /**
-   * Local login placeholder - actual logic is in AuthProvider
-   * This allows AuthProvider to call DAL methods while we migrate
-   */
   _localLogin(credentials) {
-    // Return a marker that tells AuthProvider to use its internal login
     return { _useLocalAuth: true, credentials };
   },
 
-  /**
-   * Logout current user
-   * @returns {Promise<{success: boolean}>}
-   */
   async logout() {
     if (DAL_CONFIG.features.useRemoteAuth && apiAdapter) {
       try {
@@ -299,49 +333,45 @@ const authClient = {
       }
     }
     await storageAdapter.remove(STORAGE_KEYS.SESSION);
+    await sessionStorageAdapter.remove(STORAGE_KEYS.SESSION);
+    this._setRememberFlag(false);
     return { success: true };
   },
 
-  /**
-   * Get current session
-   * @returns {Promise<{user: Object, expiry: string} | null>}
-   */
   async getSession() {
     if (DAL_CONFIG.features.useRemoteAuth && apiAdapter) {
       try {
         const result = await apiAdapter.get(DAL_CONFIG.endpoints.auth + '/session');
         if (result.user) {
-          // Update local cache
-          await storageAdapter.set(STORAGE_KEYS.SESSION, result);
+          const adapter = this._getSessionAdapter();
+          await adapter.set(STORAGE_KEYS.SESSION, result);
           return result;
         }
       } catch (e) {
         console.warn('[DAL] Remote session check failed, using local cache');
       }
     }
-    return await storageAdapter.get(STORAGE_KEYS.SESSION);
+    const adapter = this._getSessionAdapter();
+    return await adapter.get(STORAGE_KEYS.SESSION);
   },
 
-  /**
-   * Extend/refresh session
-   * @returns {Promise<{success: boolean, expiry?: string}>}
-   */
   async extendSession(newExpiry) {
     const session = await this.getSession();
     if (session) {
       session.expiry = newExpiry;
-      await storageAdapter.set(STORAGE_KEYS.SESSION, session);
+      const adapter = this._getSessionAdapter();
+      await adapter.set(STORAGE_KEYS.SESSION, session);
       return { success: true, expiry: newExpiry };
     }
     return { success: false, error: 'No active session' };
   },
 
-  /**
-   * Save session to storage
-   * @param {Object} sessionData - { user, expiry }
-   */
-  async saveSession(sessionData) {
-    return await storageAdapter.set(STORAGE_KEYS.SESSION, sessionData);
+  async saveSession(sessionData, rememberMe) {
+    if (rememberMe !== undefined) {
+      this._setRememberFlag(rememberMe);
+    }
+    const adapter = this._getSessionAdapter();
+    return await adapter.set(STORAGE_KEYS.SESSION, sessionData);
   },
 };
 
@@ -3468,7 +3498,9 @@ const AUDIT_ACTIONS = {
   SETTINGS_CHANGE: 'SETTINGS_CHANGE',
   CLIENT_DELETED: 'CLIENT_DELETED',
   CLIENT_RESTORED: 'CLIENT_RESTORED',
-  CLIENT_PURGED: 'CLIENT_PURGED'
+  CLIENT_PURGED: 'CLIENT_PURGED',
+  PASSWORD_RESET_REQUESTED: 'PASSWORD_RESET_REQUESTED',
+  SIGNUP: 'SIGNUP'
 };
 
 // Audit log storage (now using Supabase database)
@@ -3580,6 +3612,14 @@ async function createAuditEntry(action, details, user = null) {
 // AUTHENTICATION CONTEXT
 // ============================================================
 
+async function hashPassword(password) {
+  const encoder = new TextEncoder();
+  const data = encoder.encode(password);
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data);
+  const hashArray = Array.from(new Uint8Array(hashBuffer));
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
 const AuthContext = createContext(null);
 
 function useAuth() {
@@ -3680,10 +3720,9 @@ function AuthProvider({ children }) {
     logout();
   };
   
-  const login = async (email, password) => {
+  const login = async (email, password, rememberMe = false) => {
     const lowerEmail = email.toLowerCase().trim();
-    
-    // Check for account lockout
+
     const attempts = failedAttempts[lowerEmail] || { count: 0, lockUntil: null };
     if (attempts.lockUntil && new Date(attempts.lockUntil) > new Date()) {
       const minutesLeft = Math.ceil((new Date(attempts.lockUntil) - new Date()) / 60000);
@@ -3692,13 +3731,12 @@ function AuthProvider({ children }) {
         reason: 'Account locked',
         minutesLeft
       });
-      return { 
-        success: false, 
-        error: `Account locked. Try again in ${minutesLeft} minutes.` 
+      return {
+        success: false,
+        error: `Account locked. Try again in ${minutesLeft} minutes.`
       };
     }
-    
-    // Check if we should use remote auth via DAL
+
     if (DAL_CONFIG.features.useRemoteAuth) {
       try {
         const result = await authClient.login({ email: lowerEmail, password });
@@ -3711,22 +3749,51 @@ function AuthProvider({ children }) {
         }
         return result;
       } catch (e) {
-        console.warn('[Auth] Remote login failed:', e);
-        // Fall through to local auth if offline support is enabled
         if (!DAL_CONFIG.features.offlineSupport) {
           return { success: false, error: 'Authentication service unavailable' };
         }
       }
     }
-    
-    // Local authentication (current behavior)
-    const user = usersDatabase[lowerEmail];
-    
-    if (!user || user.password !== password) {
-      // Track failed attempt
+
+    const localUser = usersDatabase[lowerEmail];
+    let matchedUser = null;
+    let isSupabaseUser = false;
+
+    if (localUser && localUser.password === password) {
+      matchedUser = localUser;
+    } else {
+      try {
+        const pwHash = await hashPassword(password);
+        const { data: dbUser, error } = await supabase
+          .from('app_users')
+          .select('*')
+          .eq('email', lowerEmail)
+          .maybeSingle();
+
+        if (!error && dbUser && dbUser.password_hash === pwHash) {
+          matchedUser = {
+            id: dbUser.id,
+            email: dbUser.email,
+            name: dbUser.name,
+            role: dbUser.role,
+            phone: dbUser.phone || '',
+            department: dbUser.department || '',
+            assignedClients: dbUser.assigned_clients || ['all'],
+            mfaEnabled: dbUser.mfa_enabled || false,
+            status: dbUser.status,
+            createdAt: dbUser.created_at
+          };
+          isSupabaseUser = true;
+        }
+      } catch (e) {
+        console.warn('[Auth] Supabase user lookup failed:', e);
+      }
+    }
+
+    if (!matchedUser) {
       const newCount = (attempts.count || 0) + 1;
       const newAttempts = { ...failedAttempts };
-      
+
       if (newCount >= SESSION_CONFIG.maxFailedAttempts) {
         newAttempts[lowerEmail] = {
           count: newCount,
@@ -3735,74 +3802,172 @@ function AuthProvider({ children }) {
       } else {
         newAttempts[lowerEmail] = { count: newCount, lockUntil: null };
       }
-      
+
       setFailedAttempts(newAttempts);
-      
+
       createAuditEntry(AUDIT_ACTIONS.LOGIN_FAILED, {
         email: lowerEmail,
         reason: 'Invalid credentials',
         attemptNumber: newCount
       });
-      
-      return { 
-        success: false, 
+
+      return {
+        success: false,
         error: `Invalid email or password. ${SESSION_CONFIG.maxFailedAttempts - newCount} attempts remaining.`
       };
     }
-    
-    if (user.status !== 'active') {
+
+    if (matchedUser.status !== 'active') {
       createAuditEntry(AUDIT_ACTIONS.LOGIN_FAILED, {
         email: lowerEmail,
         reason: 'Account inactive'
       });
       return { success: false, error: 'Account is inactive. Contact administrator.' };
     }
-    
-    // Successful login
-    const sessionUser = { ...user };
-    delete sessionUser.password; // Never store password in session
-    
+
+    const sessionUser = { ...matchedUser };
+    delete sessionUser.password;
+
     const expiry = new Date(Date.now() + SESSION_CONFIG.timeoutMinutes * 60 * 1000);
-    
-    // Clear failed attempts
+
     const newAttempts = { ...failedAttempts };
     delete newAttempts[lowerEmail];
     setFailedAttempts(newAttempts);
-    
-    // Save session via DAL
+
     await authClient.saveSession({
       user: sessionUser,
       expiry: expiry.toISOString()
-    });
-    
-    // Update last login
-    usersDatabase[lowerEmail].lastLogin = new Date().toISOString();
-    
+    }, rememberMe);
+
+    if (!isSupabaseUser && usersDatabase[lowerEmail]) {
+      usersDatabase[lowerEmail].lastLogin = new Date().toISOString();
+    } else if (isSupabaseUser) {
+      supabase
+        .from('app_users')
+        .update({ last_login: new Date().toISOString() })
+        .eq('email', lowerEmail)
+        .then(() => {});
+    }
+
     createAuditEntry(AUDIT_ACTIONS.LOGIN, {
       email: lowerEmail,
-      role: user.role
+      role: matchedUser.role
     }, sessionUser);
-    
-    // Update state last to trigger re-render
+
     setCurrentUser(sessionUser);
     setSessionExpiry(expiry);
     setShowTimeoutWarning(false);
     setIsAuthenticated(true);
-    
+
     return { success: true };
   };
-  
+
+  const signup = async (name, email, password) => {
+    const lowerEmail = email.toLowerCase().trim();
+    const trimmedName = name.trim();
+
+    if (!trimmedName) {
+      return { success: false, error: 'Name is required.' };
+    }
+    if (!lowerEmail || !lowerEmail.includes('@')) {
+      return { success: false, error: 'Please enter a valid email address.' };
+    }
+    if (password.length < 8) {
+      return { success: false, error: 'Password must be at least 8 characters.' };
+    }
+
+    if (usersDatabase[lowerEmail]) {
+      return { success: false, error: 'An account with this email already exists.' };
+    }
+
+    try {
+      const { data: existing } = await supabase
+        .from('app_users')
+        .select('id')
+        .eq('email', lowerEmail)
+        .maybeSingle();
+
+      if (existing) {
+        return { success: false, error: 'An account with this email already exists.' };
+      }
+
+      const pwHash = await hashPassword(password);
+
+      const { data: newUser, error } = await supabase
+        .from('app_users')
+        .insert([{
+          email: lowerEmail,
+          password_hash: pwHash,
+          name: trimmedName,
+          role: 'admin',
+          assigned_clients: ['all'],
+          status: 'active'
+        }])
+        .select()
+        .single();
+
+      if (error) {
+        if (error.code === '23505') {
+          return { success: false, error: 'An account with this email already exists.' };
+        }
+        return { success: false, error: 'Failed to create account. Please try again.' };
+      }
+
+      usersDatabase[lowerEmail] = {
+        id: newUser.id,
+        email: lowerEmail,
+        password: password,
+        name: trimmedName,
+        role: 'admin',
+        phone: '',
+        department: '',
+        assignedClients: ['all'],
+        lastLogin: null,
+        mfaEnabled: false,
+        status: 'active',
+        createdAt: newUser.created_at
+      };
+
+      createAuditEntry(AUDIT_ACTIONS.SIGNUP, {
+        email: lowerEmail,
+        role: 'admin'
+      });
+
+      const loginResult = await login(lowerEmail, password, true);
+      return loginResult;
+    } catch (e) {
+      return { success: false, error: 'Something went wrong. Please try again.' };
+    }
+  };
+
+  const requestPasswordReset = async (email) => {
+    const lowerEmail = email.toLowerCase().trim();
+
+    createAuditEntry(AUDIT_ACTIONS.PASSWORD_RESET_REQUESTED, {
+      email: lowerEmail
+    });
+
+    try {
+      await supabase.auth.resetPasswordForEmail(lowerEmail, {
+        redirectTo: window.location.origin + '/reset-password'
+      });
+    } catch (e) {
+      console.warn('[Auth] Password reset request failed:', e);
+    }
+
+    return { success: true };
+  };
+
   const logout = async () => {
     if (currentUser) {
       createAuditEntry(AUDIT_ACTIONS.LOGOUT, {}, currentUser);
     }
-    
+
     setCurrentUser(null);
     setIsAuthenticated(false);
     setSessionExpiry(null);
     setShowTimeoutWarning(false);
-    
-    // Use DAL to clear session
+
     await authClient.logout();
   };
   
@@ -3829,6 +3994,8 @@ function AuthProvider({ children }) {
       sessionExpiry,
       showTimeoutWarning,
       login,
+      signup,
+      requestPasswordReset,
       logout,
       hasPermission,
       canAccessClient,
@@ -3846,18 +4013,20 @@ function AuthProvider({ children }) {
 // ============================================================
 
 function LoginPage({ onLogin }) {
-  console.log('[PrysmCS] LoginPage rendering');
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
-  const { login } = useAuth();
+  const [rememberMe, setRememberMe] = useState(false);
+  const [successMessage, setSuccessMessage] = useState('');
+  const { login, signup, requestPasswordReset } = useAuth();
   const { customization } = useCustomization();
   const branding = customization.branding;
 
   const handleSubmit = async (email, password) => {
     setError('');
+    setSuccessMessage('');
     setIsLoading(true);
     try {
-      const result = await login(email, password);
+      const result = await login(email, password, rememberMe);
       setIsLoading(false);
       if (!result.success) {
         setError(result.error);
@@ -3870,10 +4039,11 @@ function LoginPage({ onLogin }) {
 
   const handleQuickLogin = async (demoEmail, demoPassword) => {
     setError('');
+    setSuccessMessage('');
     setIsLoading(true);
     setTimeout(async () => {
       try {
-        const result = await login(demoEmail, demoPassword);
+        const result = await login(demoEmail, demoPassword, false);
         setIsLoading(false);
         if (!result.success) {
           setError(result.error);
@@ -3885,13 +4055,48 @@ function LoginPage({ onLogin }) {
     }, 300);
   };
 
+  const handleSignUp = async (name, email, password) => {
+    setError('');
+    setSuccessMessage('');
+    setIsLoading(true);
+    try {
+      const result = await signup(name, email, password);
+      setIsLoading(false);
+      if (!result.success) {
+        setError(result.error);
+      }
+    } catch (err) {
+      setIsLoading(false);
+      setError('Something went wrong. Please try again.');
+    }
+  };
+
+  const handleForgotPassword = async (email) => {
+    setError('');
+    setSuccessMessage('');
+    setIsLoading(true);
+    try {
+      await requestPasswordReset(email);
+      setIsLoading(false);
+      setSuccessMessage('If an account exists with this email, a password reset link has been sent.');
+    } catch (err) {
+      setIsLoading(false);
+      setSuccessMessage('If an account exists with this email, a password reset link has been sent.');
+    }
+  };
+
   return (
     <SignInCard
       branding={branding}
       onSubmit={handleSubmit}
       onQuickLogin={handleQuickLogin}
+      onSignUp={handleSignUp}
+      onForgotPassword={handleForgotPassword}
       isLoading={isLoading}
       error={error}
+      successMessage={successMessage}
+      rememberMe={rememberMe}
+      onRememberMeChange={setRememberMe}
     />
   );
 }
