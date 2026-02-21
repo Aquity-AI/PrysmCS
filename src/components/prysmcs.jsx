@@ -6,7 +6,7 @@ import {
   PieChart as RechartsPieChart, Pie, Cell, Legend,
   RadialBarChart, RadialBar, ComposedChart, Scatter
 } from "recharts";
-import { LayoutDashboard, Users, DollarSign, Heart, MessageSquare, Lightbulb, ChevronRight, ChevronLeft, TrendingUp, Activity, Calendar, Download, Building2, Clock, Settings, Save, CheckCircle, HelpCircle, AlertCircle, Mail, Phone, FileText, Lock, LogOut, Shield, Eye, EyeOff, UserCheck, ClipboardList, AlertTriangle, Palette, Image, Type, GripVertical, ToggleLeft, ToggleRight, RefreshCw, Upload, Trash2, Plus, Minus, X, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Bell, BellRing, Zap, Target, UserCog, ArrowLeft, CreditCard as Edit3, Star, Award, Briefcase, PieChart, BarChart2, Grid2x2 as Grid, LayoutGrid as Layout, Building, Layers, Copy, Move, Maximize2, Minimize2, CreditCard as Edit2, Pencil, RotateCcw, Menu, Send, Pill, Smartphone, HeartPulse, Stethoscope, Sparkles, Columns } from "lucide-react";
+import { LayoutDashboard, Users, DollarSign, Heart, MessageSquare, Lightbulb, ChevronRight, ChevronLeft, TrendingUp, Activity, Calendar, Download, Building2, Clock, Settings, Save, CheckCircle, HelpCircle, AlertCircle, Mail, Phone, FileText, Lock, LogOut, Shield, Eye, EyeOff, UserCheck, ClipboardList, AlertTriangle, Palette, Image, Type, GripVertical, ToggleLeft, ToggleRight, RefreshCw, Upload, Trash2, Plus, Minus, X, ChevronUp, ChevronDown, ChevronsUp, ChevronsDown, Bell, BellRing, Zap, Target, UserCog, ArrowLeft, CreditCard as Edit3, Star, Award, Briefcase, PieChart, BarChart2, Grid2x2 as Grid, LayoutGrid as Layout, Building, Layers, Copy, Move, Maximize2, Minimize2, CreditCard as Edit2, Pencil, RotateCcw, Menu, Send, Pill, Smartphone, HeartPulse, Stethoscope, Sparkles, Columns, Globe } from "lucide-react";
 import { createClient } from '@supabase/supabase-js';
 import { SuccessPlanning } from './success-planning';
 import { useStoriesSync } from './success-planning/useStoriesSync';
@@ -1068,6 +1068,9 @@ const customizationClient = {
           slideBg: data.slide_bg,
           headerBg: data.header_bg,
           fontFamily: data.font_family,
+          siteTitle: data.site_title,
+          faviconUrl: data.favicon_url,
+          ogImageUrl: data.og_image_url,
         },
       };
     } catch (err) {
@@ -1098,6 +1101,9 @@ const customizationClient = {
         slide_bg: branding.slideBg || 'linear-gradient(135deg, #0a2540 0%, #0f172a 50%, #1e293b 100%)',
         header_bg: branding.headerBg || '#0f172a',
         font_family: branding.fontFamily || 'Inter',
+        site_title: branding.siteTitle || 'PrysmCS',
+        favicon_url: branding.faviconUrl || null,
+        og_image_url: branding.ogImageUrl || null,
         updated_at: new Date().toISOString(),
       };
 
@@ -2371,6 +2377,9 @@ const defaultCustomization = {
     slideBg: 'linear-gradient(135deg, #0a2540 0%, #0f172a 50%, #1e293b 100%)',
     headerBg: '#0f172a',
     fontFamily: 'Inter',
+    siteTitle: 'PrysmCS',
+    faviconUrl: null,
+    ogImageUrl: null,
   },
   navigation: {
     tabs: [
@@ -2755,6 +2764,32 @@ function CustomizationProvider({ children }) {
     root.style.setProperty('--brand-font', branding.fontFamily || 'DM Sans');
     invalidateBrandingPaletteCache();
     document.body.style.fontFamily = `'${branding.fontFamily || 'DM Sans'}', -apple-system, sans-serif`;
+
+    if (branding.siteTitle) {
+      document.title = branding.siteTitle;
+    }
+    if (branding.faviconUrl) {
+      let link = document.querySelector('link[rel="icon"]');
+      if (!link) {
+        link = document.createElement('link');
+        link.rel = 'icon';
+        document.head.appendChild(link);
+      }
+      link.href = branding.faviconUrl;
+      link.type = '';
+    }
+    const ogImg = branding.ogImageUrl || '';
+    let ogMeta = document.querySelector('meta[property="og:image"]');
+    if (ogMeta) ogMeta.setAttribute('content', ogImg);
+    let twMeta = document.querySelector('meta[name="twitter:image"]');
+    if (twMeta) twMeta.setAttribute('content', ogImg);
+    let ogTitle = document.querySelector('meta[property="og:title"]');
+    if (!ogTitle && branding.siteTitle) {
+      ogTitle = document.createElement('meta');
+      ogTitle.setAttribute('property', 'og:title');
+      document.head.appendChild(ogTitle);
+    }
+    if (ogTitle && branding.siteTitle) ogTitle.setAttribute('content', branding.siteTitle);
   }, [customization]);
 
   // Memoize all functions to prevent infinite re-renders
@@ -5737,6 +5772,46 @@ function CustomizationPage({ onNavigate }) {
     handleBrandingUpdate({ logoUrl: null, logoMode: 'default' });
   };
 
+  const [faviconUploading, setFaviconUploading] = useState(false);
+  const [ogImageUploading, setOgImageUploading] = useState(false);
+
+  const uploadBrandAsset = async (file, assetName) => {
+    const ext = file.name.split('.').pop().toLowerCase();
+    const filePath = `${assetName}-${Date.now()}.${ext}`;
+    const { error } = await supabase.storage
+      .from('brand-assets')
+      .upload(filePath, file, { upsert: true });
+    if (error) {
+      console.error('[BrandAsset] Upload error:', error);
+      return null;
+    }
+    const { data: urlData } = supabase.storage
+      .from('brand-assets')
+      .getPublicUrl(filePath);
+    return urlData?.publicUrl || null;
+  };
+
+  const handleFaviconUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setFaviconUploading(true);
+    const url = await uploadBrandAsset(file, 'favicon');
+    setFaviconUploading(false);
+    if (url) handleBrandingUpdate({ faviconUrl: url });
+  };
+
+  const handleOgImageUpload = async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setOgImageUploading(true);
+    const url = await uploadBrandAsset(file, 'og-image');
+    setOgImageUploading(false);
+    if (url) handleBrandingUpdate({ ogImageUrl: url });
+  };
+
+  const removeFavicon = () => handleBrandingUpdate({ faviconUrl: null });
+  const removeOgImage = () => handleBrandingUpdate({ ogImageUrl: null });
+
   const handleTabDragStart = (e, tab) => {
     setDraggedTab(tab);
     e.dataTransfer.effectAllowed = 'move';
@@ -6139,6 +6214,116 @@ function CustomizationPage({ onNavigate }) {
                   }
                 </p>
               </div>
+            </div>
+
+            <div className="section-card">
+              <h3><Globe size={18} /> Link Preview & SEO</h3>
+              <p className="form-hint" style={{ marginTop: 0, marginBottom: 16 }}>
+                Control how your workspace appears in browser tabs and when links are shared on social platforms.
+              </p>
+
+              <div className="form-row">
+                <label>Site Title</label>
+                <input
+                  type="text"
+                  value={customization.branding.siteTitle || ''}
+                  onChange={(e) => handleBrandingUpdate({ siteTitle: e.target.value })}
+                  placeholder="Enter site title (shown in browser tab)"
+                />
+                <p className="form-hint">Appears in the browser tab and as the title when your link is shared.</p>
+              </div>
+
+              <div className="form-row">
+                <label>Favicon</label>
+                <div className="logo-upload-area">
+                  {customization.branding.faviconUrl ? (
+                    <div className="logo-preview" style={{ width: 48, height: 48, minHeight: 48 }}>
+                      <img src={customization.branding.faviconUrl} alt="Favicon preview" style={{ width: 32, height: 32, objectFit: 'contain' }} />
+                      <button className="remove-logo-btn" onClick={removeFavicon} style={{ top: -6, right: -6, width: 20, height: 20 }}>
+                        <Trash2 size={11} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="logo-placeholder" style={{ width: 48, height: 48, minHeight: 48 }}>
+                      <Image size={20} style={{ opacity: 0.4 }} />
+                    </div>
+                  )}
+                  <label className="upload-btn">
+                    {faviconUploading ? <RefreshCw size={16} className="animate-spin" /> : <Upload size={16} />}
+                    {faviconUploading ? 'Uploading...' : 'Upload Favicon'}
+                    <input
+                      type="file"
+                      accept=".ico,.png,.svg,.webp,image/x-icon,image/png,image/svg+xml,image/webp"
+                      onChange={handleFaviconUpload}
+                      style={{ display: 'none' }}
+                      disabled={faviconUploading}
+                    />
+                  </label>
+                </div>
+                <p className="form-hint">Recommended: 32x32px or 64x64px square image (.ico, .png, .svg)</p>
+              </div>
+
+              <div className="form-row">
+                <label>Share Thumbnail (OG Image)</label>
+                <div className="logo-upload-area" style={{ flexDirection: 'column', alignItems: 'flex-start' }}>
+                  {customization.branding.ogImageUrl ? (
+                    <div style={{ position: 'relative', borderRadius: 8, overflow: 'hidden', border: '1px solid rgba(255,255,255,0.1)', marginBottom: 8, maxWidth: 320 }}>
+                      <img src={customization.branding.ogImageUrl} alt="OG Image preview" style={{ width: '100%', maxHeight: 168, objectFit: 'cover', display: 'block' }} />
+                      <button className="remove-logo-btn" onClick={removeOgImage} style={{ top: 6, right: 6, width: 24, height: 24 }}>
+                        <Trash2 size={13} />
+                      </button>
+                    </div>
+                  ) : (
+                    <div className="logo-placeholder" style={{ width: '100%', maxWidth: 320, height: 120, minHeight: 120 }}>
+                      <Image size={28} style={{ opacity: 0.4 }} />
+                      <span>No thumbnail uploaded</span>
+                    </div>
+                  )}
+                  <label className="upload-btn">
+                    {ogImageUploading ? <RefreshCw size={16} className="animate-spin" /> : <Upload size={16} />}
+                    {ogImageUploading ? 'Uploading...' : 'Upload Thumbnail'}
+                    <input
+                      type="file"
+                      accept=".png,.jpg,.jpeg,.webp,image/png,image/jpeg,image/webp"
+                      onChange={handleOgImageUpload}
+                      style={{ display: 'none' }}
+                      disabled={ogImageUploading}
+                    />
+                  </label>
+                </div>
+                <p className="form-hint">Recommended: 1200x630px for best results on social platforms (.png, .jpg, .webp)</p>
+              </div>
+
+              {(customization.branding.siteTitle || customization.branding.ogImageUrl) && (
+                <div style={{
+                  marginTop: 16,
+                  padding: 0,
+                  borderRadius: 10,
+                  overflow: 'hidden',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  background: '#fff',
+                  maxWidth: 360,
+                }}>
+                  {customization.branding.ogImageUrl && (
+                    <img
+                      src={customization.branding.ogImageUrl}
+                      alt="Preview"
+                      style={{ width: '100%', height: 180, objectFit: 'cover', display: 'block' }}
+                    />
+                  )}
+                  <div style={{ padding: '10px 14px' }}>
+                    <div style={{ fontSize: 11, color: '#65676b', fontWeight: 400, marginBottom: 2, textTransform: 'uppercase', letterSpacing: '0.3px' }}>
+                      {window.location.hostname}
+                    </div>
+                    <div style={{ fontSize: 15, fontWeight: 600, color: '#1c1e21', lineHeight: 1.3, marginBottom: 2 }}>
+                      {customization.branding.siteTitle || 'Your Site Title'}
+                    </div>
+                    <div style={{ fontSize: 12, color: '#65676b' }}>
+                      {customization.branding.platformTagline || customization.branding.platformName || ''}
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
 
             <div className="section-card">
