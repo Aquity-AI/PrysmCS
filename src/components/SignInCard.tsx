@@ -378,8 +378,8 @@ export function SignInCard({ branding, onSubmit, onQuickLogin, isLoading, error 
                     <div className="grid grid-cols-3 gap-2">
                       {[
                         { label: 'Admin', desc: 'Full access', email: 'admin@prysmcs.com', pw: 'Admin123!' },
-                        { label: 'View Only', desc: 'Read-only', email: 'account@prysmcs.com', pw: 'Client123!' },
-                        { label: 'Data Entry', desc: 'Data mgmt', email: 'dataentry@prysmcs.com', pw: 'Csm123!' },
+                        { label: 'Data Entry', desc: 'Data mgmt', email: 'dataentry@prysmcs.com', pw: 'DataEntry123!' },
+                        { label: 'View Only', desc: 'Read-only', email: 'viewer@prysmcs.com', pw: 'Viewer123!' },
                       ].map((demo) => (
                         <motion.button
                           key={demo.label}

@@ -3372,6 +3372,34 @@ const usersDatabase = {
     status: 'active',
     createdAt: new Date().toISOString()
   },
+  'dataentry@prysmcs.com': {
+    id: 'user-002',
+    email: 'dataentry@prysmcs.com',
+    password: 'DataEntry123!',
+    name: 'Data Entry',
+    role: 'csm',
+    phone: '',
+    department: 'Customer Success',
+    assignedClients: ['all'],
+    lastLogin: null,
+    mfaEnabled: false,
+    status: 'active',
+    createdAt: new Date().toISOString()
+  },
+  'viewer@prysmcs.com': {
+    id: 'user-003',
+    email: 'viewer@prysmcs.com',
+    password: 'Viewer123!',
+    name: 'Viewer',
+    role: 'client',
+    phone: '',
+    department: '',
+    assignedClients: ['all'],
+    lastLogin: null,
+    mfaEnabled: false,
+    status: 'active',
+    createdAt: new Date().toISOString()
+  },
 };
 
 // Session configuration (HIPAA recommends 15-30 min timeout)
@@ -3825,7 +3853,7 @@ function LoginPage({ onLogin }) {
     <SignInCard
       branding={branding}
       onSubmit={handleSubmit}
-      onQuickLogin={null}
+      onQuickLogin={handleQuickLogin}
       isLoading={isLoading}
       error={error}
     />
