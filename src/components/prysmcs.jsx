@@ -2515,12 +2515,7 @@ const defaultCustomization = {
       },
     },
   },
-  activeAlerts: [
-    { id: 1, type: 'opportunity', title: 'Upsell Opportunity', message: 'Apex Solutions showing 40% engagement increase - good time for expansion', time: '2 hours ago', status: 'active', createdAt: new Date().toISOString() },
-    { id: 2, type: 'warning', title: 'Metric Alert', message: 'Cascade Enterprises enrollment down 12% this month', time: '5 hours ago', status: 'active', createdAt: new Date().toISOString() },
-    { id: 3, type: 'info', title: 'Campaign Launched', message: 'Q4 Outreach campaign is now active for 3 clients', time: '1 day ago', status: 'active', createdAt: new Date().toISOString() },
-    { id: 4, type: 'inactive', title: 'Client Inactivity', message: "Coastal Care hasn't logged in for 32 days", time: '2 days ago', status: 'active', createdAt: new Date().toISOString() },
-  ],
+  activeAlerts: [],
   // Section visibility controls for Stories and Opportunities sections
   sectionVisibility: {
     stories: true,
@@ -3362,50 +3357,21 @@ function useCustomization() {
   return context;
 }
 
-// Demo users database (in production, this would be server-side with hashed passwords)
 const usersDatabase = {
   'admin@prysmcs.com': {
     id: 'user-001',
     email: 'admin@prysmcs.com',
-    password: 'Admin123!', // In production: hashed password
-    name: 'Sarah Johnson',
+    password: 'Admin123!',
+    name: 'Admin',
     role: 'admin',
-    phone: '(555) 123-4567',
+    phone: '',
     department: 'Operations',
     assignedClients: ['all'],
     lastLogin: null,
-    mfaEnabled: true,
-    status: 'active',
-    createdAt: '2024-01-15T10:00:00Z'
-  },
-  'account@prysmcs.com': {
-    id: 'user-002',
-    email: 'account@prysmcs.com',
-    password: 'Client123!',
-    name: 'Dr. Michael Chen',
-    role: 'client',
-    phone: '(813) 555-0100',
-    department: 'Internal Medicine',
-    assignedClients: ['apex-solutions'],
-    lastLogin: null,
     mfaEnabled: false,
     status: 'active',
-    createdAt: '2024-02-20T14:30:00Z'
+    createdAt: new Date().toISOString()
   },
-  'dataentry@prysmcs.com': {
-    id: 'user-003',
-    email: 'dataentry@prysmcs.com',
-    password: 'Csm123!',
-    name: 'Emily Rodriguez',
-    role: 'csm',
-    phone: '(555) 987-6543',
-    department: 'Customer Success',
-    assignedClients: ['apex-solutions', 'cascade-enterprises'],
-    lastLogin: null,
-    mfaEnabled: false,
-    status: 'active',
-    createdAt: '2024-03-10T09:15:00Z'
-  }
 };
 
 // Session configuration (HIPAA recommends 15-30 min timeout)
@@ -3859,7 +3825,7 @@ function LoginPage({ onLogin }) {
     <SignInCard
       branding={branding}
       onSubmit={handleSubmit}
-      onQuickLogin={handleQuickLogin}
+      onQuickLogin={null}
       isLoading={isLoading}
       error={error}
     />
@@ -5210,87 +5176,18 @@ function ProtectedContent({ permission, children, fallback = null }) {
 // PORTFOLIO ANALYTICS PAGE (Admin Only)
 // ============================================================
 
-// Mock CSM team data
-const csmTeamData = [
-  {
-    id: 'csm-001',
-    name: 'Emily Rodriguez',
-    email: 'emily@prysmcs.com',
-    avatar: 'ER',
-    clients: ['apex-solutions', 'cascade-enterprises'],
-    metrics: {
-      totalPatients: 342,
-      enrolledThisMonth: 47,
-      avgEngagementRate: 87,
-      avgOutcomeScore: 82,
-      revenueManaged: 128500,
-      responseTime: 3.2,
-      clientSatisfaction: 94,
-    },
-    trend: [
-      { month: 'Jul', enrolled: 32, engagement: 82 },
-      { month: 'Aug', enrolled: 38, engagement: 84 },
-      { month: 'Sep', enrolled: 41, engagement: 85 },
-      { month: 'Oct', enrolled: 44, engagement: 86 },
-      { month: 'Nov', enrolled: 47, engagement: 87 },
-    ],
-    strengths: ['Client communication', 'Patient engagement', 'Outcome tracking'],
-    areasToImprove: ['Documentation timeliness', 'Cross-selling services'],
-  },
-  {
-    id: 'csm-002',
-    name: 'Marcus Thompson',
-    email: 'marcus@prysmcs.com',
-    avatar: 'MT',
-    clients: ['wellness-first', 'coastal-care'],
-    metrics: {
-      totalPatients: 289,
-      enrolledThisMonth: 38,
-      avgEngagementRate: 79,
-      avgOutcomeScore: 76,
-      revenueManaged: 98200,
-      responseTime: 4.8,
-      clientSatisfaction: 86,
-    },
-    trend: [
-      { month: 'Jul', enrolled: 28, engagement: 74 },
-      { month: 'Aug', enrolled: 31, engagement: 75 },
-      { month: 'Sep', enrolled: 33, engagement: 77 },
-      { month: 'Oct', enrolled: 35, engagement: 78 },
-      { month: 'Nov', enrolled: 38, engagement: 79 },
-    ],
-    strengths: ['Technical knowledge', 'Problem solving'],
-    areasToImprove: ['Response time', 'Proactive outreach', 'Client check-ins'],
-  },
-  {
-    id: 'csm-003',
-    name: 'Sarah Kim',
-    email: 'sarah@prysmcs.com',
-    avatar: 'SK',
-    clients: ['premier-health', 'sunrise-medical', 'valley-clinic'],
-    metrics: {
-      totalPatients: 412,
-      enrolledThisMonth: 58,
-      avgEngagementRate: 91,
-      avgOutcomeScore: 88,
-      revenueManaged: 156800,
-      responseTime: 2.4,
-      clientSatisfaction: 97,
-    },
-    trend: [
-      { month: 'Jul', enrolled: 42, engagement: 86 },
-      { month: 'Aug', enrolled: 48, engagement: 88 },
-      { month: 'Sep', enrolled: 52, engagement: 89 },
-      { month: 'Oct', enrolled: 55, engagement: 90 },
-      { month: 'Nov', enrolled: 58, engagement: 91 },
-    ],
-    strengths: ['Client retention', 'Upselling', 'Process optimization', 'Team collaboration'],
-    areasToImprove: ['Workload delegation'],
-  },
-];
+const csmTeamData = [];
 
 // Generate AI insights based on team data
 function generateAIInsights(teamData) {
+  if (!teamData || teamData.length === 0) {
+    return {
+      teamSummary: { title: "Team Performance Summary", insights: ["No team data available yet. Add CSM team members to see performance insights."], trend: 'needs-attention' },
+      topPerformerAnalysis: { title: "Star Performer", insights: ["No data available."], recommendation: "" },
+      coachingOpportunities: { title: "Coaching & Development Opportunities", insights: [] },
+      strategicRecommendations: { title: "Strategic Recommendations", insights: [] },
+    };
+  }
   const avgEngagement = teamData.reduce((sum, csm) => sum + csm.metrics.avgEngagementRate, 0) / teamData.length;
   const avgSatisfaction = teamData.reduce((sum, csm) => sum + csm.metrics.clientSatisfaction, 0) / teamData.length;
   const totalEnrolled = teamData.reduce((sum, csm) => sum + csm.metrics.enrolledThisMonth, 0);
@@ -5391,22 +5288,23 @@ function PortfolioAnalyticsPage() {
   
   const aiInsights = generateAIInsights(csmTeamData);
   
-  // Calculate company-wide metrics
+  const teamLen = csmTeamData.length || 1;
   const companyMetrics = {
     totalPatients: csmTeamData.reduce((sum, csm) => sum + csm.metrics.totalPatients, 0),
     totalEnrolledThisMonth: csmTeamData.reduce((sum, csm) => sum + csm.metrics.enrolledThisMonth, 0),
     totalRevenue: csmTeamData.reduce((sum, csm) => sum + csm.metrics.revenueManaged, 0),
-    avgEngagement: (csmTeamData.reduce((sum, csm) => sum + csm.metrics.avgEngagementRate, 0) / csmTeamData.length).toFixed(0),
-    avgSatisfaction: (csmTeamData.reduce((sum, csm) => sum + csm.metrics.clientSatisfaction, 0) / csmTeamData.length).toFixed(0),
-    avgResponseTime: (csmTeamData.reduce((sum, csm) => sum + csm.metrics.responseTime, 0) / csmTeamData.length).toFixed(1),
+    avgEngagement: (csmTeamData.reduce((sum, csm) => sum + csm.metrics.avgEngagementRate, 0) / teamLen).toFixed(0),
+    avgSatisfaction: (csmTeamData.reduce((sum, csm) => sum + csm.metrics.clientSatisfaction, 0) / teamLen).toFixed(0),
+    avgResponseTime: (csmTeamData.reduce((sum, csm) => sum + csm.metrics.responseTime, 0) / teamLen).toFixed(1),
   };
-  
-  // Company trend data
-  const companyTrend = ['Jul', 'Aug', 'Sep', 'Oct', 'Nov'].map((month, idx) => ({
-    month,
-    enrolled: csmTeamData.reduce((sum, csm) => sum + csm.trend[idx].enrolled, 0),
-    engagement: Math.round(csmTeamData.reduce((sum, csm) => sum + csm.trend[idx].engagement, 0) / csmTeamData.length),
-  }));
+
+  const companyTrend = csmTeamData.length > 0 && csmTeamData[0]?.trend
+    ? csmTeamData[0].trend.map((t, idx) => ({
+        month: t.month,
+        enrolled: csmTeamData.reduce((sum, csm) => sum + (csm.trend[idx]?.enrolled || 0), 0),
+        engagement: Math.round(csmTeamData.reduce((sum, csm) => sum + (csm.trend[idx]?.engagement || 0), 0) / teamLen),
+      }))
+    : [];
   
   return (
     <div className="portfolio-page">
@@ -8018,288 +7916,9 @@ const emptyMonthData = {
   }
 };
 
-const initialClientsDatabase = {
-  'apex-solutions': {
-    id: 'apex-solutions',
-    clientInfo: {
-      clientName: "Apex Solutions Inc",
-      address: "1234 Medical Center Dr, Suite 100, Tampa, FL 33601",
-      phone: "(813) 555-0100",
-      email: "info@hybridmedical.com",
-      website: "www.hybridmedical.com",
-      stakeholders: [
-        { id: 1, name: "Dr. Sarah Mitchell", title: "Medical Director", role: "Decision Maker", email: "s.mitchell@hybridmedical.com", phone: "(813) 555-0101", reportsTo: null },
-        { id: 2, name: "James Chen", title: "Practice Manager", role: "Primary Contact", email: "j.chen@hybridmedical.com", phone: "(813) 555-0102", reportsTo: 1 },
-        { id: 3, name: "Maria Rodriguez", title: "Office Manager", role: "Operations Lead", email: "m.rodriguez@hybridmedical.com", phone: "(813) 555-0103", reportsTo: 2 },
-      ],
-      weeklyMeetingSchedule: "Second Wednesday of each month at 3:00 PM EST",
-      emrName: "eClinicalWorks",
-      careManagementCoordinator: { name: "Jennifer Adams", email: "j.adams@prysmcs.com", phone: "(555) 123-4567" },
-      enrollmentSpecialists: [
-        { id: 1, name: "David Park", email: "d.park@prysmcs.com", phone: "(555) 123-4568", role: "Implementation Specialist" },
-        { id: 2, name: "Ashley Thompson", email: "a.thompson@prysmcs.com", phone: "(555) 123-4569", role: "Onboarding Specialist" },
-      ],
-      csmAssigned: { name: "Michael Roberts", email: "m.roberts@prysmcs.com", phone: "(555) 123-4570" },
-      providers: [
-        { id: 1, name: "Dr. Sarah Mitchell", npi: "1234567890", phone: "(813) 555-0101", callerIdVerified: true },
-        { id: 2, name: "Dr. Robert Kim", npi: "0987654321", phone: "(813) 555-0104", callerIdVerified: true },
-        { id: 3, name: "Dr. Emily Watson", npi: "1122334455", phone: "(813) 555-0105", callerIdVerified: false },
-      ],
-      hoursOfOperation: "Monday - Friday: 8:00 AM - 5:00 PM EST",
-      billingContact: "accounts@hybridmedical.com",
-      billingNotes: "Net 30 terms. Invoice sent 1st of each month.",
-      contractSignedDate: "2025-06-15",
-      enrollmentStartDate: "2025-07-01",
-      clientGoals: "Enroll 200 patients in CCM/RPM programs by end of Q4 2025. Achieve 80% patient retention rate. Generate $50,000+ monthly revenue from chronic care programs.",
-      valueMetrics: "Focus on BP control improvement, medication adherence, and reduced ER visits. Track patient satisfaction scores monthly.",
-      notes: "Client prefers communication via email. Dr. Mitchell is very data-driven - include charts and metrics in all presentations. Practice is expanding to a second location in Q1 2026.",
-    },
-    monthlyData: {
-      '2025-11': {
-        enrolledThisMonth: 42, activePatients: 178, servicesDelivered: 320, revenue: 12560,
-        contacted: 124, enrolled: 42, smsSent: 450, smsConsented: 28, emailSent: 380,
-        emailConsented: 22, mailersSent: 200, mailersConsented: 12, currentlyInOutreach: 22,
-        campaignStartDate: '2025-11-01', bpImproved: 67, adherenceRate: 84, readmissionReduction: 23, avgResponseHours: 4,
-      },
-      '2025-10': {
-        enrolledThisMonth: 36, activePatients: 165, servicesDelivered: 258, revenue: 10920,
-        contacted: 98, enrolled: 36, smsSent: 380, smsConsented: 22, emailSent: 320,
-        emailConsented: 18, mailersSent: 180, mailersConsented: 10, currentlyInOutreach: 18,
-        campaignStartDate: '2025-10-01', bpImproved: 62, adherenceRate: 79, readmissionReduction: 19, avgResponseHours: 5,
-      },
-      '2025-09': {
-        enrolledThisMonth: 29, activePatients: 148, servicesDelivered: 215, revenue: 8760,
-        contacted: 82, enrolled: 29, smsSent: 320, smsConsented: 18, emailSent: 280,
-        emailConsented: 15, mailersSent: 160, mailersConsented: 8, currentlyInOutreach: 14,
-        campaignStartDate: '2025-09-01', bpImproved: 58, adherenceRate: 76, readmissionReduction: 17, avgResponseHours: 6,
-      },
-      '2025-08': {
-        enrolledThisMonth: 24, activePatients: 132, servicesDelivered: 185, revenue: 7280,
-        contacted: 72, enrolled: 24, smsSent: 280, smsConsented: 14, emailSent: 240,
-        emailConsented: 12, mailersSent: 140, mailersConsented: 6, currentlyInOutreach: 12,
-        campaignStartDate: '2025-08-01', bpImproved: 55, adherenceRate: 74, readmissionReduction: 15, avgResponseHours: 7,
-      },
-      '2025-07': {
-        enrolledThisMonth: 18, activePatients: 118, servicesDelivered: 156, revenue: 5840,
-        contacted: 58, enrolled: 18, smsSent: 220, smsConsented: 10, emailSent: 200,
-        emailConsented: 9, mailersSent: 120, mailersConsented: 4, currentlyInOutreach: 10,
-        campaignStartDate: '2025-07-01', bpImproved: 52, adherenceRate: 72, readmissionReduction: 12, avgResponseHours: 8,
-      },
-    },
-    stories: {
-      '2025-11': [
-        { id: 1, title: "Proactive Care Success", quote: "One patient said this program is exactly what he needed three months ago. The regular check-ins helped him stay on track with his medication.", patientType: "CCM Patient, Week 3" },
-        { id: 2, title: "Grateful Patient", quote: "Mrs. Johnson called specifically to thank our care team for catching her elevated blood pressure early. She felt genuinely cared for.", patientType: "RPM Patient, Month 2" },
-      ],
-      '2025-10': [
-        { id: 1, title: "Medication Compliance Win", quote: "Patient reported feeling more confident about managing his diabetes after our team helped simplify his medication schedule.", patientType: "CCM Patient, Month 1" },
-      ],
-      '2025-09': [
-        { id: 1, title: "Early Intervention", quote: "Caught a potential cardiac issue during routine monitoring. Patient was grateful for the quick response and follow-up care.", patientType: "RPM Patient, Week 4" },
-      ],
-    },
-    opportunities: {
-      '2025-11': [
-        { id: 1, title: "Improve Answer Rates", description: "Resolve spam labeling issues with carrier registration. Expected 15-20% improvement in contact rates.", priority: 1 },
-        { id: 2, title: "Provider Welcome Video", description: "Create personalized intro video from provider to increase trust and enrollment conversion.", priority: 2 },
-        { id: 3, title: "Eligibility Filtering", description: "Optimize patient list filtering to reduce ineligible outreach and improve staff efficiency.", priority: 3 },
-      ],
-      '2025-10': [
-        { id: 1, title: "Staff Training", description: "Schedule refresher training on new EMR integration features.", priority: 1 },
-        { id: 2, title: "Patient Survey", description: "Launch satisfaction survey to gather feedback for Q4 planning.", priority: 2 },
-      ],
-    },
-  },
-  
-  'cascade-enterprises': {
-    id: 'cascade-enterprises',
-    clientInfo: {
-      clientName: "Cascade Enterprises",
-      address: "567 Wellness Way, Orlando, FL 32801",
-      phone: "(407) 555-0200",
-      email: "contact@spirazzafamily.com",
-      website: "www.spirazzafamilymedicine.com",
-      stakeholders: [
-        { id: 1, name: "Dr. Anthony Spirazza", title: "Owner/Physician", role: "Decision Maker", email: "a.spirazza@spirazzafamily.com", phone: "(407) 555-0201", reportsTo: null },
-        { id: 2, name: "Linda Tran", title: "Office Manager", role: "Primary Contact", email: "l.tran@spirazzafamily.com", phone: "(407) 555-0202", reportsTo: 1 },
-      ],
-      weeklyMeetingSchedule: "First Monday of each month at 10:00 AM EST",
-      emrName: "Athenahealth",
-      careManagementCoordinator: { name: "Jennifer Adams", email: "j.adams@prysmcs.com", phone: "(555) 123-4567" },
-      enrollmentSpecialists: [
-        { id: 1, name: "Marcus Williams", email: "m.williams@prysmcs.com", phone: "(555) 123-4571", role: "Support Specialist" },
-      ],
-      csmAssigned: { name: "Sarah Chen", email: "s.chen@prysmcs.com", phone: "(555) 123-4572" },
-      providers: [
-        { id: 1, name: "Dr. Anthony Spirazza", npi: "5566778899", phone: "(407) 555-0201", callerIdVerified: true },
-        { id: 2, name: "Dr. Rebecca Moore", npi: "9988776655", phone: "(407) 555-0203", callerIdVerified: true },
-      ],
-      hoursOfOperation: "Monday - Friday: 8:30 AM - 5:30 PM EST, Saturday: 9:00 AM - 1:00 PM",
-      billingContact: "billing@spirazzafamily.com",
-      billingNotes: "Net 15 terms. Auto-pay enabled.",
-      contractSignedDate: "2025-04-01",
-      enrollmentStartDate: "2025-05-01",
-      clientGoals: "Reach 150 active CCM patients by end of year. Improve diabetic patient A1C outcomes. Generate $30,000+ monthly revenue.",
-      valueMetrics: "Track A1C improvements, medication compliance, and patient satisfaction. Monthly NPS survey.",
-      notes: "Dr. Spirazza prefers phone calls over email. Very hands-on and wants weekly updates during ramp-up phase. Expanding to include pediatric CCM in Q2 2026.",
-    },
-    monthlyData: {
-      '2025-11': {
-        enrolledThisMonth: 35, activePatients: 128, servicesDelivered: 245, revenue: 9520,
-        contacted: 102, enrolled: 35, smsSent: 340, smsConsented: 24, emailSent: 280,
-        emailConsented: 18, mailersSent: 175, mailersConsented: 10, currentlyInOutreach: 18,
-        campaignStartDate: '2025-11-03', bpImproved: 63, adherenceRate: 81, readmissionReduction: 21, avgResponseHours: 5,
-      },
-      '2025-10': {
-        enrolledThisMonth: 28, activePatients: 112, servicesDelivered: 198, revenue: 7840,
-        contacted: 85, enrolled: 28, smsSent: 290, smsConsented: 18, emailSent: 240,
-        emailConsented: 14, mailersSent: 150, mailersConsented: 8, currentlyInOutreach: 15,
-        campaignStartDate: '2025-10-01', bpImproved: 58, adherenceRate: 76, readmissionReduction: 18, avgResponseHours: 6,
-      },
-      '2025-09': {
-        enrolledThisMonth: 22, activePatients: 98, servicesDelivered: 168, revenue: 6420,
-        contacted: 68, enrolled: 22, smsSent: 240, smsConsented: 14, emailSent: 200,
-        emailConsented: 11, mailersSent: 130, mailersConsented: 6, currentlyInOutreach: 12,
-        campaignStartDate: '2025-09-01', bpImproved: 54, adherenceRate: 73, readmissionReduction: 16, avgResponseHours: 7,
-      },
-      '2025-08': {
-        enrolledThisMonth: 18, activePatients: 85, servicesDelivered: 142, revenue: 5280,
-        contacted: 55, enrolled: 18, smsSent: 200, smsConsented: 11, emailSent: 170,
-        emailConsented: 8, mailersSent: 110, mailersConsented: 5, currentlyInOutreach: 10,
-        campaignStartDate: '2025-08-01', bpImproved: 50, adherenceRate: 70, readmissionReduction: 14, avgResponseHours: 8,
-      },
-      '2025-07': {
-        enrolledThisMonth: 14, activePatients: 72, servicesDelivered: 118, revenue: 4120,
-        contacted: 42, enrolled: 14, smsSent: 160, smsConsented: 8, emailSent: 140,
-        emailConsented: 6, mailersSent: 90, mailersConsented: 3, currentlyInOutreach: 8,
-        campaignStartDate: '2025-07-01', bpImproved: 48, adherenceRate: 68, readmissionReduction: 12, avgResponseHours: 9,
-      },
-    },
-    stories: {
-      '2025-11': [
-        { id: 1, title: "Diabetes Turnaround", quote: "Mr. Garcia reduced his A1C from 9.2 to 7.1 in just 4 months. He credits the weekly check-ins for keeping him accountable.", patientType: "CCM Patient, Month 4" },
-        { id: 2, title: "Preventive Care Win", quote: "We caught early signs of kidney issues in a diabetic patient during routine monitoring. Early intervention made all the difference.", patientType: "RPM Patient, Week 6" },
-      ],
-      '2025-10': [
-        { id: 1, title: "Family Engagement", quote: "Patient's daughter joined our care calls and now helps manage her mother's medications. The whole family is more involved.", patientType: "CCM Patient, Month 2" },
-      ],
-    },
-    opportunities: {
-      '2025-11': [
-        { id: 1, title: "Saturday Enrollment Calls", description: "Add Saturday morning enrollment shifts to reach working patients. Dr. Spirazza approved overtime budget.", priority: 1 },
-        { id: 2, title: "Spanish Language Support", description: "30% of patient base is Spanish-speaking. Adding bilingual enrollment specialist would improve conversion.", priority: 2 },
-      ],
-      '2025-10': [
-        { id: 1, title: "EMR Training", description: "Schedule Athenahealth integration training for new staff members.", priority: 1 },
-      ],
-    },
-  },
-  
-  'summit-partners-group': {
-    id: 'summit-partners-group',
-    clientInfo: {
-      clientName: "Summit Partners Group",
-      address: "890 Healthcare Blvd, Jacksonville, FL 32256",
-      phone: "(904) 555-0300",
-      email: "info@burkefamilypractice.com",
-      website: "www.burkefamilypractice.com",
-      stakeholders: [
-        { id: 1, name: "Dr. William Burke", title: "Senior Partner", role: "Decision Maker", email: "w.burke@burkefamily.com", phone: "(904) 555-0301", reportsTo: null },
-        { id: 2, name: "Dr. Catherine Burke", title: "Partner", role: "Clinical Champion", email: "c.burke@burkefamily.com", phone: "(904) 555-0302", reportsTo: null },
-        { id: 3, name: "Tom Henderson", title: "Practice Administrator", role: "Primary Contact", email: "t.henderson@burkefamily.com", phone: "(904) 555-0303", reportsTo: 1 },
-        { id: 4, name: "Nancy White", title: "Billing Manager", role: "Billing Contact", email: "n.white@burkefamily.com", phone: "(904) 555-0304", reportsTo: 3 },
-      ],
-      weeklyMeetingSchedule: "Third Thursday of each month at 2:00 PM EST",
-      emrName: "Epic",
-      careManagementCoordinator: { name: "Robert Martinez", email: "r.martinez@prysmcs.com", phone: "(555) 123-4573" },
-      enrollmentSpecialists: [
-        { id: 1, name: "David Park", email: "d.park@prysmcs.com", phone: "(555) 123-4568", role: "Implementation Specialist" },
-        { id: 2, name: "Kelly Johnson", email: "k.johnson@prysmcs.com", phone: "(555) 123-4574", role: "Technical Account Manager" },
-        { id: 3, name: "Chris Lee", email: "c.lee@prysmcs.com", phone: "(555) 123-4575", role: "Product Specialist" },
-      ],
-      csmAssigned: { name: "Michael Roberts", email: "m.roberts@prysmcs.com", phone: "(555) 123-4570" },
-      providers: [
-        { id: 1, name: "Dr. William Burke", npi: "1111222233", phone: "(904) 555-0301", callerIdVerified: true },
-        { id: 2, name: "Dr. Catherine Burke", npi: "4444555566", phone: "(904) 555-0302", callerIdVerified: true },
-        { id: 3, name: "Dr. James Patterson", npi: "7777888899", phone: "(904) 555-0305", callerIdVerified: true },
-        { id: 4, name: "NP Amanda Foster", npi: "1212121212", phone: "(904) 555-0306", callerIdVerified: false },
-      ],
-      hoursOfOperation: "Monday - Friday: 7:00 AM - 6:00 PM EST",
-      billingContact: "n.white@burkefamily.com",
-      billingNotes: "Net 45 terms. Requires itemized invoices. PO required for amounts over $5,000.",
-      contractSignedDate: "2025-03-01",
-      enrollmentStartDate: "2025-04-01",
-      clientGoals: "Scale to 300 active patients across CCM and RPM. Achieve top-quartile outcomes in regional benchmarks. Target $75,000 monthly revenue by Q1 2026.",
-      valueMetrics: "Comprehensive tracking: BP control, A1C, medication adherence, hospitalization rates, patient satisfaction, and staff efficiency metrics.",
-      notes: "Large multi-physician practice with complex workflows. Dr. Catherine Burke is the internal champion - loop her in on clinical outcomes. They want detailed quarterly business reviews in addition to monthly reports. Considering adding BHI services in 2026.",
-    },
-    monthlyData: {
-      '2025-11': {
-        enrolledThisMonth: 58, activePatients: 268, servicesDelivered: 456, revenue: 21280,
-        contacted: 172, enrolled: 58, smsSent: 580, smsConsented: 42, emailSent: 520,
-        emailConsented: 36, mailersSent: 300, mailersConsented: 22, currentlyInOutreach: 32,
-        campaignStartDate: '2025-10-28', bpImproved: 72, adherenceRate: 85, readmissionReduction: 28, avgResponseHours: 3,
-      },
-      '2025-10': {
-        enrolledThisMonth: 52, activePatients: 245, servicesDelivered: 412, revenue: 18340,
-        contacted: 156, enrolled: 52, smsSent: 520, smsConsented: 38, emailSent: 480,
-        emailConsented: 32, mailersSent: 280, mailersConsented: 18, currentlyInOutreach: 28,
-        campaignStartDate: '2025-10-01', bpImproved: 70, adherenceRate: 82, readmissionReduction: 26, avgResponseHours: 3,
-      },
-      '2025-09': {
-        enrolledThisMonth: 48, activePatients: 225, servicesDelivered: 378, revenue: 16280,
-        contacted: 142, enrolled: 48, smsSent: 480, smsConsented: 34, emailSent: 440,
-        emailConsented: 28, mailersSent: 260, mailersConsented: 16, currentlyInOutreach: 25,
-        campaignStartDate: '2025-09-01', bpImproved: 68, adherenceRate: 80, readmissionReduction: 24, avgResponseHours: 4,
-      },
-      '2025-08': {
-        enrolledThisMonth: 42, activePatients: 198, servicesDelivered: 342, revenue: 14120,
-        contacted: 128, enrolled: 42, smsSent: 420, smsConsented: 28, emailSent: 380,
-        emailConsented: 24, mailersSent: 240, mailersConsented: 14, currentlyInOutreach: 22,
-        campaignStartDate: '2025-08-01', bpImproved: 65, adherenceRate: 78, readmissionReduction: 22, avgResponseHours: 4,
-      },
-      '2025-07': {
-        enrolledThisMonth: 38, activePatients: 175, servicesDelivered: 298, revenue: 12240,
-        contacted: 112, enrolled: 38, smsSent: 360, smsConsented: 24, emailSent: 340,
-        emailConsented: 20, mailersSent: 220, mailersConsented: 12, currentlyInOutreach: 18,
-        campaignStartDate: '2025-07-01', bpImproved: 62, adherenceRate: 76, readmissionReduction: 20, avgResponseHours: 5,
-      },
-    },
-    stories: {
-      '2025-11': [
-        { id: 1, title: "Heart Failure Prevention", quote: "Our care coordinator noticed weight gain trends in Mr. Thompson's daily readings. We adjusted his diuretics before it became an emergency.", patientType: "RPM Patient, Month 3" },
-        { id: 2, title: "Caregiver Relief", quote: "Mrs. Davis's daughter called to say how much peace of mind the program gives her. Knowing someone checks on her mom daily lets her focus on work.", patientType: "CCM Patient, Month 5" },
-        { id: 3, title: "Medication Sync Success", quote: "Identified that a patient was taking duplicate medications from two different pharmacies. Coordinated with both to resolve - potentially prevented serious interaction.", patientType: "CCM Patient, Week 8" },
-      ],
-      '2025-10': [
-        { id: 1, title: "Post-Surgery Support", quote: "Patient recovering from knee replacement credits our daily check-ins with helping her stay on track with PT exercises.", patientType: "CCM Patient, Month 1" },
-        { id: 2, title: "BP Control Achievement", quote: "After 3 months in the program, patient's BP went from 165/95 to 128/82. He's thrilled with the results.", patientType: "RPM Patient, Month 3" },
-      ],
-      '2025-09': [
-        { id: 1, title: "Depression Screening Win", quote: "During routine CCM call, our nurse identified signs of depression. Patient is now getting proper mental health support.", patientType: "CCM Patient, Week 6" },
-      ],
-    },
-    opportunities: {
-      '2025-11': [
-        { id: 1, title: "NP Protocol Expansion", description: "NP Amanda Foster can handle more complex CCM cases. Develop expanded protocols to increase her patient load.", priority: 1 },
-        { id: 2, title: "Epic Integration", description: "Direct Epic integration would save 5+ hours/week of manual data entry. IT has approved the project for Q1.", priority: 2 },
-        { id: 3, title: "BHI Pilot Program", description: "Dr. Catherine interested in adding Behavioral Health Integration. Prepare pilot proposal for 20 patients.", priority: 3 },
-        { id: 4, title: "Referral Program", description: "Patient satisfaction is high - implement referral program for existing patients to recommend family members.", priority: 4 },
-      ],
-      '2025-10': [
-        { id: 1, title: "Quarterly Business Review", description: "Prepare comprehensive QBR deck for Q3 results. Include benchmarking data.", priority: 1 },
-        { id: 2, title: "NP Credentialing", description: "Complete caller ID verification for NP Amanda Foster.", priority: 2 },
-      ],
-    },
-  },
-};
+const initialClientsDatabase = {};
 
-// Helper to get client list for dropdown
-const clientsList = [
-  { id: 'apex-solutions', name: 'Apex Solutions Inc' },
-  { id: 'cascade-enterprises', name: 'Cascade Enterprises' },
-  { id: 'summit-partners-group', name: 'Summit Partners Group' },
-];
+const clientsList = [];
 
 // Helper to get previous month ID
 function getPreviousMonthId(monthId) {
@@ -8418,26 +8037,9 @@ function clearStorage() {
   }
 }
 
-const dailyEnrollmentTrend = [
-  { date: "Nov 1", enrollments: 2, target: 3, activePatients: 140 },
-  { date: "Nov 2", enrollments: 4, target: 3, activePatients: 144 },
-  { date: "Nov 3", enrollments: 1, target: 3, activePatients: 145 },
-  { date: "Nov 4", enrollments: 6, target: 3, activePatients: 151 },
-  { date: "Nov 5", enrollments: 3, target: 3, activePatients: 154 },
-  { date: "Nov 6", enrollments: 5, target: 3, activePatients: 159 },
-  { date: "Nov 7", enrollments: 7, target: 3, activePatients: 166 },
-  { date: "Nov 8", enrollments: 4, target: 3, activePatients: 170 },
-  { date: "Nov 9", enrollments: 5, target: 3, activePatients: 175 },
-  { date: "Nov 10", enrollments: 5, target: 3, activePatients: 178 },
-];
+const dailyEnrollmentTrend = [];
 
-const revenueSeries = [
-  { month: "Jul", amount: 8500 },
-  { month: "Aug", amount: 9200 },
-  { month: "Sep", amount: 10300 },
-  { month: "Oct", amount: 10920 },
-  { month: "Nov", amount: 12560 },
-];
+const revenueSeries = [];
 
 // Helper function to calculate delta percentage
 function calculateDelta(current, previous) {
@@ -26380,14 +25982,21 @@ function PrysmCSDashboardContent() {
   const editLayout = useEditLayout();
   const [isLoadingCustomization, setIsLoadingCustomization] = useState(false);
 
-  // Load persisted data or use initial data
   const [clientsData, setClientsData] = useState(() => {
+    const DATA_VERSION = '2';
+    const storedVersion = localStorage.getItem('prysmcs_data_version');
+    if (storedVersion !== DATA_VERSION) {
+      localStorage.removeItem(STORAGE_KEY);
+      localStorage.removeItem('medkick_customization');
+      localStorage.setItem('prysmcs_data_version', DATA_VERSION);
+      return {};
+    }
     const saved = loadFromStorage();
-    return saved || JSON.parse(JSON.stringify(initialClientsDatabase));
+    return saved || {};
   });
 
   // Selection state
-  const [selectedClientId, setSelectedClientId] = useState('apex-solutions');
+  const [selectedClientId, setSelectedClientId] = useState(null);
   const [selectedMonth, setSelectedMonth] = useState(getCurrentMonthKey());
   
   // UI state
@@ -26401,11 +26010,7 @@ function PrysmCSDashboardContent() {
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
   
   // Client management state
-  const [clientsList, setClientsList] = useState([
-    { id: 'apex-solutions', name: 'Apex Solutions Inc' },
-    { id: 'cascade-enterprises', name: 'Cascade Enterprises' },
-    { id: 'summit-partners-group', name: 'Summit Partners Group' },
-  ]);
+  const [clientsList, setClientsList] = useState([]);
 
   // Delete client state
   const [showDeleteClientModal, setShowDeleteClientModal] = useState(false);
@@ -27066,6 +26671,31 @@ function PrysmCSDashboardContent() {
 
   const renderPage = () => {
     const sectionVisibility = customization.sectionVisibility || { stories: true, opportunities: true };
+
+    const noClientPages = ['users', 'deleted-accounts', 'audit', 'portfolio', 'customization', 'notifications', 'profile'];
+    if (clientsList.length === 0 && !noClientPages.includes(activePage)) {
+      const bc = customization.branding.primaryColor || '#06b6d4';
+      return (
+        <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', minHeight: '60vh', textAlign: 'center', padding: '48px 24px' }}>
+          <div style={{ width: 64, height: 64, borderRadius: 16, background: `${bc}12`, display: 'flex', alignItems: 'center', justifyContent: 'center', marginBottom: 24 }}>
+            <Users size={28} style={{ color: bc }} />
+          </div>
+          <h2 style={{ fontSize: 22, fontWeight: 600, color: '#1e293b', marginBottom: 8 }}>No Clients Yet</h2>
+          <p style={{ fontSize: 14, color: '#64748b', maxWidth: 400, lineHeight: 1.6, marginBottom: 24 }}>
+            Get started by adding your first client account. Once created, you can begin tracking metrics, managing data, and generating reports.
+          </p>
+          {hasPermission('edit_data') && (
+            <button
+              onClick={() => { handleCreateClient(); }}
+              style={{ display: 'inline-flex', alignItems: 'center', gap: 8, padding: '10px 24px', borderRadius: 8, border: 'none', background: bc, color: '#fff', fontSize: 14, fontWeight: 600, cursor: 'pointer' }}
+            >
+              <Plus size={16} />
+              Add First Client
+            </button>
+          )}
+        </div>
+      );
+    }
 
     const currentTab = customization.navigation.tabs.find(tab => tab.id === activePage);
 
