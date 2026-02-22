@@ -11,11 +11,6 @@ export function TitleSlideLayout({ slide, branding }: Props) {
   return (
     <div className="pres-slide-title-layout">
       <div className="pres-title-content">
-        {branding.logoUrl && (
-          <div className="pres-title-logo">
-            <img src={branding.logoUrl} alt="" style={{ maxHeight: 48, maxWidth: 180, objectFit: 'contain' }} />
-          </div>
-        )}
         <h1
           className="pres-main-title"
           style={{

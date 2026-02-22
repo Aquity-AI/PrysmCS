@@ -1,12 +1,74 @@
-import { useState, useRef, useMemo } from 'react';
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import {
   Play, X, Plus, Type, Image, Eye, EyeOff, GripVertical,
-  Trash2, Palette, RefreshCw, Layers,
+  Trash2, Palette, RefreshCw, Layers, ChevronDown,
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { SlideEditorCanvas } from './SlideEditorCanvas';
 import { slideTypeRegistry } from './slideTypeRegistry';
 import type { SlideData, PresentationBranding, OverlayElement } from './types';
+
+const ANIMATION_OPTIONS = [
+  { value: 'fade', label: 'Fade' },
+  { value: 'slide', label: 'Slide' },
+  { value: 'zoom', label: 'Zoom' },
+  { value: 'none', label: 'None' },
+];
+
+function AnimationDropdown({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useRef<HTMLDivElement>(null);
+  const label = ANIMATION_OPTIONS.find(o => o.value === value)?.label ?? value;
+
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: MouseEvent) => {
+      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [open]);
+
+  return (
+    <div ref={ref} style={{ position: 'relative' }}>
+      <button
+        onClick={() => setOpen(o => !o)}
+        style={{
+          display: 'flex', alignItems: 'center', gap: 6, padding: '7px 12px',
+          borderRadius: 8, border: '1px solid rgba(255,255,255,0.12)',
+          background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)',
+          cursor: 'pointer', fontSize: 12, minWidth: 88,
+        }}
+      >
+        <span style={{ flex: 1, textAlign: 'left' }}>{label}</span>
+        <ChevronDown size={12} style={{ opacity: 0.6, flexShrink: 0 }} />
+      </button>
+      {open && (
+        <div style={{
+          position: 'absolute', top: 'calc(100% + 6px)', right: 0, zIndex: 200,
+          background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)',
+          borderRadius: 8, overflow: 'hidden',
+          boxShadow: '0 8px 24px rgba(0,0,0,0.5)', minWidth: 120,
+        }}>
+          {ANIMATION_OPTIONS.map(opt => (
+            <button
+              key={opt.value}
+              onClick={() => { onChange(opt.value); setOpen(false); }}
+              style={{
+                display: 'block', width: '100%', textAlign: 'left',
+                padding: '8px 14px', fontSize: 12, cursor: 'pointer', border: 'none',
+                background: opt.value === value ? 'rgba(255,255,255,0.08)' : 'transparent',
+                color: opt.value === value ? '#fff' : 'rgba(255,255,255,0.65)',
+              }}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 interface PresentationEditorProps {
   slides: SlideData[];
@@ -49,6 +111,7 @@ export function PresentationEditor({
   const [showBgPicker, setShowBgPicker] = useState(false);
   const [draggedSlide, setDraggedSlide] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const slideListRef = useRef<HTMLDivElement>(null);
 
   const defaultBg = branding.slideBg || 'linear-gradient(135deg, #0a2540 0%, #0f172a 50%, #1e293b 100%)';
   const sortedSlides = useMemo(() => [...slides].sort((a, b) => a.order - b.order), [slides]);
@@ -56,6 +119,37 @@ export function PresentationEditor({
   const currentEditingSlide = useMemo(() => slides.find(s => s.id === editingSlideId), [slides, editingSlideId]);
 
   const minutesAgo = Math.floor((Date.now() - dataTimestamp) / 60000);
+
+  const navigateSlide = useCallback((direction: 'up' | 'down') => {
+    const currentIdx = sortedSlides.findIndex(s => s.id === editingSlideId);
+    if (direction === 'up' && currentIdx > 0) {
+      setEditingSlideId(sortedSlides[currentIdx - 1].id);
+      setSelectedElement(null);
+    } else if (direction === 'down' && currentIdx < sortedSlides.length - 1) {
+      setEditingSlideId(sortedSlides[currentIdx + 1].id);
+      setSelectedElement(null);
+    } else if (currentIdx === -1 && sortedSlides.length > 0) {
+      setEditingSlideId(sortedSlides[0].id);
+      setSelectedElement(null);
+    }
+  }, [sortedSlides, editingSlideId]);
+
+  useEffect(() => {
+    const handleKey = (e: KeyboardEvent) => {
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+      if (e.key === 'ArrowUp') { e.preventDefault(); navigateSlide('up'); }
+      else if (e.key === 'ArrowDown') { e.preventDefault(); navigateSlide('down'); }
+    };
+    window.addEventListener('keydown', handleKey);
+    return () => window.removeEventListener('keydown', handleKey);
+  }, [navigateSlide]);
+
+  useEffect(() => {
+    if (!editingSlideId || !slideListRef.current) return;
+    const el = slideListRef.current.querySelector<HTMLElement>(`[data-slide-id="${editingSlideId}"]`);
+    el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+  }, [editingSlideId]);
 
   const toggleSlide = (slideId: string) => {
     onSlidesChange(prev => prev.map(s => s.id === slideId ? { ...s, enabled: !s.enabled } : s));
@@ -244,21 +338,7 @@ export function PresentationEditor({
               />
               <Layers size={14} /> Compact
             </label>
-            <select
-              value={animation}
-              onChange={(e) => onAnimationChange(e.target.value)}
-              style={{
-                padding: '7px 12px', borderRadius: 8,
-                border: '1px solid rgba(255,255,255,0.12)',
-                background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)',
-                cursor: 'pointer', fontSize: 12, outline: 'none',
-              }}
-            >
-              <option value="fade">Fade</option>
-              <option value="slide">Slide</option>
-              <option value="zoom">Zoom</option>
-              <option value="none">None</option>
-            </select>
+            <AnimationDropdown value={animation} onChange={onAnimationChange} />
             <button
               onClick={onPresent}
               style={{
@@ -310,7 +390,7 @@ export function PresentationEditor({
               </button>
             </div>
 
-            <div style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
+            <div ref={slideListRef} style={{ flex: 1, overflow: 'auto', padding: '8px' }}>
               {sortedSlides.map((slide) => {
                 const isSelected = editingSlideId === slide.id;
                 const config = slideTypeRegistry[slide.type];
@@ -318,6 +398,7 @@ export function PresentationEditor({
                 return (
                   <div
                     key={slide.id}
+                    data-slide-id={slide.id}
                     draggable
                     onDragStart={(e) => handleDragStart(e, slide.id)}
                     onDragOver={(e) => handleDragOver(e, slide.id)}

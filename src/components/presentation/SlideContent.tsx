@@ -50,9 +50,9 @@ function OverlayRenderer({ elements }: { elements: OverlayElement[] }) {
               alt=""
               style={{
                 width: `${elem.width}px`,
-                height: `${elem.height || 'auto'}px`,
-                objectFit: 'cover',
-                borderRadius: 8,
+                height: elem.height ? `${elem.height}px` : 'auto',
+                objectFit: elem.id === '__logo__' ? 'contain' : 'cover',
+                borderRadius: elem.id === '__logo__' ? 0 : 8,
               }}
             />
           )}

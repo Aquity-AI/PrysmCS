@@ -21,12 +21,6 @@ export function TabTitleSlideLayout({ slide, branding }: Props) {
       textAlign: 'center',
       position: 'relative',
     }}>
-      {branding.logoUrl && (
-        <div style={{ position: 'absolute', top: 32, right: 40, opacity: 0.6 }}>
-          <img src={branding.logoUrl} alt="" style={{ maxHeight: 28, maxWidth: 120, objectFit: 'contain' }} />
-        </div>
-      )}
-
       {IconComponent && (
         <div style={{
           width: 72,

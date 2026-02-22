@@ -198,8 +198,8 @@ export function SlideEditorCanvas({
                 style={{
                   width: '100%',
                   height: elem.height || 'auto',
-                  objectFit: 'cover',
-                  borderRadius: 8,
+                  objectFit: elem.id === '__logo__' ? 'contain' : 'cover',
+                  borderRadius: elem.id === '__logo__' ? 0 : 8,
                   pointerEvents: 'none',
                 }}
               />

@@ -20,12 +20,6 @@ export function ClosingSlideLayout({ slide, branding }: Props) {
       padding: '60px',
       position: 'relative',
     }}>
-      {branding.logoUrl && (
-        <div style={{ marginBottom: 32 }}>
-          <img src={branding.logoUrl} alt="" style={{ maxHeight: 40, maxWidth: 160, objectFit: 'contain' }} />
-        </div>
-      )}
-
       <h1 style={{
         fontSize: 56,
         fontWeight: 700,

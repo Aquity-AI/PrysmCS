@@ -60,7 +60,15 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
     enabled: true,
     order: order++,
     contentLayout: { ...DEFAULT_LAYOUT },
-    overlayElements: [],
+    overlayElements: branding.logoUrl ? [{
+      id: '__logo__',
+      type: 'image',
+      src: branding.logoUrl,
+      x: 48,
+      y: 32,
+      width: 160,
+      height: 56,
+    }] : [],
     platformName: branding.platformName,
     logoUrl: branding.logoUrl,
     companyName: clientOverview?.company_name || '',
@@ -272,7 +280,15 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
     enabled: true,
     order: order++,
     contentLayout: { ...DEFAULT_LAYOUT },
-    overlayElements: [],
+    overlayElements: branding.logoUrl ? [{
+      id: '__logo__',
+      type: 'image',
+      src: branding.logoUrl,
+      x: 48,
+      y: 32,
+      width: 160,
+      height: 56,
+    }] : [],
     platformName: branding.platformName,
     logoUrl: branding.logoUrl,
   });
@@ -289,11 +305,19 @@ export function mergeSlidesWithOverrides(
     const override = overrides[slide.id];
     if (!override) return slide;
 
+    let overlayElements = override.overlayElements ?? slide.overlayElements;
+
+    if (override.overlayElements && slide.logoUrl) {
+      overlayElements = override.overlayElements.map(el =>
+        el.id === '__logo__' ? { ...el, src: slide.logoUrl } : el
+      );
+    }
+
     return {
       ...slide,
       enabled: override.enabled ?? slide.enabled,
       background: override.background ?? slide.background,
-      overlayElements: override.overlayElements ?? slide.overlayElements,
+      overlayElements,
       contentLayout: override.contentLayout ?? slide.contentLayout,
       order: override.order ?? slide.order,
     };
