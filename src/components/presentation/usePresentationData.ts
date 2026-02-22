@@ -53,9 +53,27 @@ export function usePresentationData(
     return merged;
   }, [reportData, branding, monthLabel, globalSettings.compactMode]);
 
+  const generateAndMergeRef = useRef(generateAndMerge);
+  generateAndMergeRef.current = generateAndMerge;
+  const savedConfigRef = useRef(savedConfig);
+  savedConfigRef.current = savedConfig;
+
+  useEffect(() => {
+    if (!isOpen) {
+      initializedRef.current = false;
+      setConfigLoading(true);
+    }
+  }, [isOpen]);
+
   useEffect(() => {
     if (!isOpen || !clientId) return;
     if (reportData.loading) return;
+
+    if (initializedRef.current) {
+      const merged = generateAndMergeRef.current(savedConfigRef.current);
+      setSlides(merged);
+      return;
+    }
 
     let cancelled = false;
 
@@ -66,6 +84,7 @@ export function usePresentationData(
         if (cancelled) return;
 
         setSavedConfig(config);
+        savedConfigRef.current = config;
 
         if (config?.global_settings) {
           setGlobalSettings({
@@ -74,14 +93,14 @@ export function usePresentationData(
           });
         }
 
-        const merged = generateAndMerge(config);
+        const merged = generateAndMergeRef.current(config);
         setSlides(merged);
         setDataTimestamp(Date.now());
 
         await touchPresentationConfig(clientId);
       } catch (err) {
         console.error('[usePresentationData] Init error:', err);
-        const merged = generateAndMerge(null);
+        const merged = generateAndMergeRef.current(null);
         setSlides(merged);
       } finally {
         if (!cancelled) {
@@ -93,7 +112,7 @@ export function usePresentationData(
 
     init();
     return () => { cancelled = true; };
-  }, [isOpen, clientId, reportData.loading, generateAndMerge]);
+  }, [isOpen, clientId, reportData.loading, reportData.tabs, reportData.stories, reportData.priorities, reportData.csmInfo, reportData.clientOverview]);
 
   const scheduleSave = useCallback((updatedSlides: SlideData[], updatedSettings: PresentationGlobalSettings) => {
     if (saveTimeoutRef.current) {

@@ -12475,7 +12475,7 @@ const styles = `
   }
 
   .pres-editor {
-    background: white;
+    background: #0f172a;
     border-radius: 16px;
     width: 100%;
     max-width: 1400px;
@@ -12483,7 +12483,7 @@ const styles = `
     display: flex;
     flex-direction: column;
     overflow: hidden;
-    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7);
   }
 
   .pres-editor-header {
