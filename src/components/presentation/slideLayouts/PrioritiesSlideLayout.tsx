@@ -8,6 +8,7 @@ interface Props {
 export function PrioritiesSlideLayout({ slide, branding }: Props) {
   const priorities = slide.priorities || [];
   const brandColor = branding.primaryColor;
+  const hasOverlay = (id: string) => slide.overlayElements?.some(e => e.id === id);
 
   return (
     <div style={{
@@ -16,14 +17,16 @@ export function PrioritiesSlideLayout({ slide, branding }: Props) {
       height: '100%',
       padding: '48px 56px',
     }}>
-      <h2 style={{
-        fontSize: 32,
-        fontWeight: 700,
-        color: '#ffffff',
-        marginBottom: 32,
-      }}>
-        {slide.title}
-      </h2>
+      {!hasOverlay('__title__') && (
+        <h2 style={{
+          fontSize: 32,
+          fontWeight: 700,
+          color: '#ffffff',
+          marginBottom: 32,
+        }}>
+          {slide.title}
+        </h2>
+      )}
 
       <div style={{
         flex: 1,

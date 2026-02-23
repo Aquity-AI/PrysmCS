@@ -131,6 +131,8 @@ export function GraphSlideLayout({ slide, branding }: Props) {
     }
   };
 
+  const hasOverlay = (id: string) => slide.overlayElements?.some(e => e.id === id);
+
   return (
     <div style={{
       display: 'flex',
@@ -138,14 +140,16 @@ export function GraphSlideLayout({ slide, branding }: Props) {
       height: '100%',
       padding: '48px 56px',
     }}>
-      <h2 style={{
-        fontSize: 28,
-        fontWeight: 700,
-        color: '#ffffff',
-        marginBottom: 24,
-      }}>
-        {slide.title}
-      </h2>
+      {!hasOverlay('__title__') && (
+        <h2 style={{
+          fontSize: 28,
+          fontWeight: 700,
+          color: '#ffffff',
+          marginBottom: 24,
+        }}>
+          {slide.title}
+        </h2>
+      )}
       <div style={{
         flex: 1,
         display: 'flex',

@@ -1,6 +1,7 @@
 import type {
   SlideData,
   ContentLayout,
+  OverlayElement,
   ReportTab,
   ReportStory,
   ReportPriority,
@@ -34,6 +35,54 @@ function chunkArray<T>(arr: T[], size: number): T[][] {
   return chunks;
 }
 
+function makeTitleElement(content: string, x: number, y: number, width: number, fontSize: number, fontWeight: string, color: string): OverlayElement {
+  return {
+    id: '__title__',
+    type: 'text',
+    content,
+    x,
+    y,
+    width,
+    height: Math.ceil(fontSize * 1.4),
+    fontSize,
+    fontWeight,
+    color,
+    isBuiltIn: true,
+  };
+}
+
+function makeSubtitleElement(content: string, x: number, y: number, width: number, fontSize: number): OverlayElement {
+  return {
+    id: '__subtitle__',
+    type: 'text',
+    content,
+    x,
+    y,
+    width,
+    height: Math.ceil(fontSize * 1.4),
+    fontSize,
+    fontWeight: '400',
+    color: 'rgba(255,255,255,0.6)',
+    isBuiltIn: true,
+  };
+}
+
+function makeMetaElement(content: string, x: number, y: number, width: number): OverlayElement {
+  return {
+    id: '__meta__',
+    type: 'text',
+    content,
+    x,
+    y,
+    width,
+    height: 20,
+    fontSize: 14,
+    fontWeight: '400',
+    color: 'rgba(255,255,255,0.5)',
+    isBuiltIn: true,
+  };
+}
+
 interface GenerateOptions {
   tabs: ReportTab[];
   stories: ReportStory[];
@@ -51,16 +100,9 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
   const slides: SlideData[] = [];
   let order = 0;
 
-  slides.push({
-    id: 'title',
-    type: 'title',
-    title: `${branding.platformName} Impact Report`,
-    subtitle: clientOverview?.company_name || '',
-    meta: monthLabel,
-    enabled: true,
-    order: order++,
-    contentLayout: { ...DEFAULT_LAYOUT },
-    overlayElements: branding.logoUrl ? [{
+  const titleOverlays: OverlayElement[] = [];
+  if (branding.logoUrl) {
+    titleOverlays.push({
       id: '__logo__',
       type: 'image',
       src: branding.logoUrl,
@@ -68,7 +110,28 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
       y: 32,
       width: 160,
       height: 56,
-    }] : [],
+      isBuiltIn: true,
+    });
+  }
+  const titleText = `${branding.platformName} Impact Report`;
+  titleOverlays.push(makeTitleElement(titleText, 80, 160, 640, 52, '700', '#ffffff'));
+  if (clientOverview?.company_name) {
+    titleOverlays.push(makeSubtitleElement(clientOverview.company_name, 80, 230, 500, 24));
+  }
+  if (monthLabel) {
+    titleOverlays.push(makeMetaElement(monthLabel, 80, 270, 300));
+  }
+
+  slides.push({
+    id: 'title',
+    type: 'title',
+    title: titleText,
+    subtitle: clientOverview?.company_name || '',
+    meta: monthLabel,
+    enabled: true,
+    order: order++,
+    contentLayout: { ...DEFAULT_LAYOUT },
+    overlayElements: titleOverlays,
     platformName: branding.platformName,
     logoUrl: branding.logoUrl,
     companyName: clientOverview?.company_name || '',
@@ -82,6 +145,9 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
     if (!hasTabContent(tab)) continue;
 
     if (!compactMode) {
+      const tabTitleOverlays: OverlayElement[] = [
+        makeTitleElement(tab.label, 80, 180, 640, 52, '700', '#ffffff'),
+      ];
       slides.push({
         id: `tab-title-${tab.id}`,
         type: 'tab-title',
@@ -91,21 +157,22 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
         enabled: true,
         order: order++,
         contentLayout: { ...DEFAULT_LAYOUT },
-        overlayElements: [],
+        overlayElements: tabTitleOverlays,
       });
     }
 
     for (const ps of tab.pageSummaries) {
+      const psTitle = ps.title || `${tab.label} Summary`;
       slides.push({
         id: `summary-${ps.id}`,
         type: 'page-summary',
-        title: ps.title || `${tab.label} Summary`,
+        title: psTitle,
         pageSummary: ps,
         tabId: tab.id,
         enabled: true,
         order: order++,
         contentLayout: { ...DEFAULT_LAYOUT },
-        overlayElements: [],
+        overlayElements: [makeTitleElement(psTitle, 56, 48, 500, 28, '700', '#ffffff')],
       });
     }
 
@@ -116,16 +183,17 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
       const pairs = chunkArray(smallSections, 2);
       for (const pair of pairs) {
         if (pair.length === 2) {
+          const combinedTitle = `${pair[0].title} & ${pair[1].title}`;
           slides.push({
             id: `section-${pair[0].id}-${pair[1].id}`,
             type: getSectionSlideType(pair[0].id),
-            title: `${pair[0].title} & ${pair[1].title}`,
+            title: combinedTitle,
             section: { ...pair[0], fields: [...pair[0].fields, ...pair[1].fields] },
             tabId: tab.id,
             enabled: true,
             order: order++,
             contentLayout: { ...DEFAULT_LAYOUT },
-            overlayElements: [],
+            overlayElements: [makeTitleElement(combinedTitle, 56, 48, 600, 32, '700', '#ffffff')],
           });
         } else {
           slides.push({
@@ -137,7 +205,7 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
             enabled: true,
             order: order++,
             contentLayout: { ...DEFAULT_LAYOUT },
-            overlayElements: [],
+            overlayElements: [makeTitleElement(pair[0].title, 56, 48, 600, 32, '700', '#ffffff')],
           });
         }
       }
@@ -152,7 +220,7 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
           enabled: true,
           order: order++,
           contentLayout: { ...DEFAULT_LAYOUT },
-          overlayElements: [],
+          overlayElements: [makeTitleElement(section.title, 56, 48, 600, 32, '700', '#ffffff')],
         });
       }
 
@@ -162,16 +230,17 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
       const graphPairs = chunkArray(halfGraphs, 2);
       for (const pair of graphPairs) {
         if (pair.length === 2) {
+          const combinedTitle = `${pair[0].graph.title} & ${pair[1].graph.title}`;
           slides.push({
             id: `graph-${pair[0].graph.id}-${pair[1].graph.id}`,
             type: 'graph',
-            title: `${pair[0].graph.title} & ${pair[1].graph.title}`,
+            title: combinedTitle,
             graph: pair[0],
             tabId: tab.id,
             enabled: true,
             order: order++,
             contentLayout: { ...DEFAULT_LAYOUT },
-            overlayElements: [],
+            overlayElements: [makeTitleElement(combinedTitle, 56, 48, 600, 28, '700', '#ffffff')],
           });
         } else {
           slides.push({
@@ -183,7 +252,7 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
             enabled: true,
             order: order++,
             contentLayout: { ...DEFAULT_LAYOUT },
-            overlayElements: [],
+            overlayElements: [makeTitleElement(pair[0].graph.title, 56, 48, 600, 28, '700', '#ffffff')],
           });
         }
       }
@@ -197,7 +266,7 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
           enabled: true,
           order: order++,
           contentLayout: { ...DEFAULT_LAYOUT },
-          overlayElements: [],
+          overlayElements: [makeTitleElement(rg.graph.title, 56, 48, 600, 28, '700', '#ffffff')],
         });
       }
     } else {
@@ -211,7 +280,7 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
           enabled: true,
           order: order++,
           contentLayout: { ...DEFAULT_LAYOUT },
-          overlayElements: [],
+          overlayElements: [makeTitleElement(section.title, 56, 48, 600, 32, '700', '#ffffff')],
         });
       }
 
@@ -225,7 +294,7 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
           enabled: true,
           order: order++,
           contentLayout: { ...DEFAULT_LAYOUT },
-          overlayElements: [],
+          overlayElements: [makeTitleElement(rg.graph.title, 56, 48, 600, 28, '700', '#ffffff')],
         });
       }
     }
@@ -236,16 +305,17 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
     if (storiesTab) {
       const storyChunks = chunkArray(stories, MAX_STORIES_PER_SLIDE);
       storyChunks.forEach((chunk, i) => {
+        const storyTitle = i === 0 ? 'Success Stories' : 'Success Stories (continued)';
         slides.push({
           id: `stories-${i}`,
           type: 'stories',
-          title: i === 0 ? 'Success Stories' : `Success Stories (continued)`,
+          title: storyTitle,
           stories: chunk,
           tabId: 'stories',
           enabled: true,
           order: order++,
           contentLayout: { ...DEFAULT_LAYOUT },
-          overlayElements: [],
+          overlayElements: [makeTitleElement(storyTitle, 56, 48, 600, 32, '700', '#ffffff')],
         });
       });
     }
@@ -256,20 +326,37 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
     if (initiativesTab) {
       const priorityChunks = chunkArray(priorities, MAX_PRIORITIES_PER_SLIDE);
       priorityChunks.forEach((chunk, i) => {
+        const priorityTitle = i === 0 ? 'Strategic Priorities' : 'Strategic Priorities (continued)';
         slides.push({
           id: `priorities-${i}`,
           type: 'priorities',
-          title: i === 0 ? 'Strategic Priorities' : `Strategic Priorities (continued)`,
+          title: priorityTitle,
           priorities: chunk,
           tabId: 'initiatives',
           enabled: true,
           order: order++,
           contentLayout: { ...DEFAULT_LAYOUT },
-          overlayElements: [],
+          overlayElements: [makeTitleElement(priorityTitle, 56, 48, 600, 32, '700', '#ffffff')],
         });
       });
     }
   }
+
+  const closingOverlays: OverlayElement[] = [];
+  if (branding.logoUrl) {
+    closingOverlays.push({
+      id: '__logo__',
+      type: 'image',
+      src: branding.logoUrl,
+      x: 48,
+      y: 32,
+      width: 160,
+      height: 56,
+      isBuiltIn: true,
+    });
+  }
+  closingOverlays.push(makeTitleElement('Thank You', 80, 150, 640, 56, '700', '#ffffff'));
+  closingOverlays.push(makeSubtitleElement('Questions & Discussion', 80, 230, 500, 22));
 
   slides.push({
     id: 'closing',
@@ -280,15 +367,7 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
     enabled: true,
     order: order++,
     contentLayout: { ...DEFAULT_LAYOUT },
-    overlayElements: branding.logoUrl ? [{
-      id: '__logo__',
-      type: 'image',
-      src: branding.logoUrl,
-      x: 48,
-      y: 32,
-      width: 160,
-      height: 56,
-    }] : [],
+    overlayElements: closingOverlays,
     platformName: branding.platformName,
     logoUrl: branding.logoUrl,
   });
@@ -307,10 +386,30 @@ export function mergeSlidesWithOverrides(
 
     let overlayElements = override.overlayElements ?? slide.overlayElements;
 
-    if (override.overlayElements && slide.logoUrl) {
-      overlayElements = override.overlayElements.map(el =>
-        el.id === '__logo__' ? { ...el, src: slide.logoUrl } : el
-      );
+    if (override.overlayElements) {
+      overlayElements = override.overlayElements.map(el => {
+        if (el.id === '__logo__' && slide.logoUrl) {
+          return { ...el, src: slide.logoUrl };
+        }
+        if (el.isBuiltIn) {
+          const generated = slide.overlayElements.find(g => g.id === el.id);
+          if (generated) {
+            const userEditedContent = el.content !== generated.content;
+            return {
+              ...el,
+              content: userEditedContent ? el.content : generated.content,
+            };
+          }
+        }
+        return el;
+      });
+
+      const existingIds = new Set(overlayElements.map(el => el.id));
+      for (const genEl of slide.overlayElements) {
+        if (!existingIds.has(genEl.id)) {
+          overlayElements = [...overlayElements, genEl];
+        }
+      }
     }
 
     return {

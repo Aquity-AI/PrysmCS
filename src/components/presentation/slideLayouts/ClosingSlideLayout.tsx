@@ -8,6 +8,7 @@ interface Props {
 export function ClosingSlideLayout({ slide, branding }: Props) {
   const brandColor = branding.primaryColor;
   const csmInfo = slide.csmInfo;
+  const hasOverlay = (id: string) => slide.overlayElements?.some(e => e.id === id);
 
   return (
     <div style={{
@@ -20,26 +21,30 @@ export function ClosingSlideLayout({ slide, branding }: Props) {
       padding: '60px',
       position: 'relative',
     }}>
-      <h1 style={{
-        fontSize: 56,
-        fontWeight: 700,
-        color: '#ffffff',
-        marginBottom: 12,
-        background: `linear-gradient(135deg, #ffffff 0%, ${brandColor} 100%)`,
-        WebkitBackgroundClip: 'text',
-        WebkitTextFillColor: 'transparent',
-        backgroundClip: 'text',
-      }}>
-        {slide.title}
-      </h1>
-      <h2 style={{
-        fontSize: 22,
-        color: 'rgba(255,255,255,0.6)',
-        fontWeight: 400,
-        marginBottom: 40,
-      }}>
-        {slide.subtitle}
-      </h2>
+      {!hasOverlay('__title__') && (
+        <h1 style={{
+          fontSize: 56,
+          fontWeight: 700,
+          color: '#ffffff',
+          marginBottom: 12,
+          background: `linear-gradient(135deg, #ffffff 0%, ${brandColor} 100%)`,
+          WebkitBackgroundClip: 'text',
+          WebkitTextFillColor: 'transparent',
+          backgroundClip: 'text',
+        }}>
+          {slide.title}
+        </h1>
+      )}
+      {!hasOverlay('__subtitle__') && (
+        <h2 style={{
+          fontSize: 22,
+          color: 'rgba(255,255,255,0.6)',
+          fontWeight: 400,
+          marginBottom: 40,
+        }}>
+          {slide.subtitle}
+        </h2>
+      )}
 
       {csmInfo && (
         <div style={{

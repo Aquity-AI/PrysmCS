@@ -24,8 +24,10 @@ export interface OverlayElement {
   fontSize?: number;
   color?: string;
   fontWeight?: string;
+  fontStyle?: string;
   content?: string;
   src?: string;
+  isBuiltIn?: boolean;
 }
 
 export interface ContentLayout {

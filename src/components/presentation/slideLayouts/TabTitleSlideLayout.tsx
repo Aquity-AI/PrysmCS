@@ -9,6 +9,7 @@ interface Props {
 export function TabTitleSlideLayout({ slide, branding }: Props) {
   const brandColor = branding.primaryColor;
   const IconComponent = slide.tabIcon ? (LucideIcons as any)[slide.tabIcon] : null;
+  const hasOverlay = (id: string) => slide.overlayElements?.some(e => e.id === id);
 
   return (
     <div style={{
@@ -45,18 +46,20 @@ export function TabTitleSlideLayout({ slide, branding }: Props) {
         opacity: 0.8,
       }} />
 
-      <h1 style={{
-        fontSize: 52,
-        fontWeight: 700,
-        color: '#ffffff',
-        letterSpacing: '-0.02em',
-        lineHeight: 1.1,
-        margin: 0,
-      }}>
-        {slide.title}
-      </h1>
+      {!hasOverlay('__title__') && (
+        <h1 style={{
+          fontSize: 52,
+          fontWeight: 700,
+          color: '#ffffff',
+          letterSpacing: '-0.02em',
+          lineHeight: 1.1,
+          margin: 0,
+        }}>
+          {slide.title}
+        </h1>
+      )}
 
-      {slide.subtitle && (
+      {!hasOverlay('__subtitle__') && slide.subtitle && (
         <p style={{
           fontSize: 20,
           color: 'rgba(255, 255, 255, 0.6)',

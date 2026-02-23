@@ -162,16 +162,31 @@ export function PresentationEditor({
   const updateElement = (slideId: string, elementId: string, updates: Partial<OverlayElement>) => {
     onSlidesChange(prev => prev.map(s => {
       if (s.id === slideId) {
-        return {
+        const updatedSlide: typeof s = {
           ...s,
           overlayElements: s.overlayElements.map(el => el.id === elementId ? { ...el, ...updates } : el),
         };
+        if (elementId === '__title__' && 'content' in updates) {
+          updatedSlide.title = updates.content ?? s.title;
+        }
+        if (elementId === '__subtitle__' && 'content' in updates) {
+          updatedSlide.subtitle = updates.content ?? s.subtitle;
+        }
+        if (elementId === '__meta__' && 'content' in updates) {
+          updatedSlide.meta = updates.content ?? s.meta;
+        }
+        return updatedSlide;
       }
       return s;
     }));
   };
 
   const deleteElement = (slideId: string, elementId: string) => {
+    const slide = slides.find(s => s.id === slideId);
+    if (slide) {
+      const elem = slide.overlayElements.find(el => el.id === elementId);
+      if (elem?.isBuiltIn) return;
+    }
     onSlidesChange(prev => prev.map(s => {
       if (s.id === slideId) {
         return { ...s, overlayElements: s.overlayElements.filter(el => el.id !== elementId) };

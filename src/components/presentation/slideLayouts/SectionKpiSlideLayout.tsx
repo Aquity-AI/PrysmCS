@@ -30,6 +30,7 @@ export function SectionKpiSlideLayout({ slide, branding }: Props) {
   const fields = slide.section?.fields || [];
   const brandColor = branding.primaryColor;
   const cols = fields.length <= 3 ? fields.length : fields.length <= 4 ? 2 : 3;
+  const hasOverlay = (id: string) => slide.overlayElements?.some(e => e.id === id);
 
   return (
     <div style={{
@@ -38,15 +39,17 @@ export function SectionKpiSlideLayout({ slide, branding }: Props) {
       height: '100%',
       padding: '48px 56px',
     }}>
-      <h2 style={{
-        fontSize: 32,
-        fontWeight: 700,
-        color: '#ffffff',
-        marginBottom: 8,
-        letterSpacing: '-0.01em',
-      }}>
-        {slide.title}
-      </h2>
+      {!hasOverlay('__title__') && (
+        <h2 style={{
+          fontSize: 32,
+          fontWeight: 700,
+          color: '#ffffff',
+          marginBottom: 8,
+          letterSpacing: '-0.01em',
+        }}>
+          {slide.title}
+        </h2>
+      )}
       {slide.section?.subtitle && (
         <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.5)', marginBottom: 32 }}>
           {slide.section.subtitle}

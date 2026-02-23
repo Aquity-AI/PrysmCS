@@ -30,6 +30,7 @@ export function SlideEditorCanvas({
   const slideBg = slide.background || defaultBg;
 
   const handleCanvasClick = (e: React.MouseEvent) => {
+    if (resizing) return;
     if (e.target === e.currentTarget || (e.target as HTMLElement).closest('.pres-editor-canvas-inner')) {
       onSelectElement(null);
       setEditingText(null);
@@ -172,6 +173,7 @@ export function SlideEditorCanvas({
                   fontSize: elem.fontSize || 18,
                   color: elem.color || '#ffffff',
                   fontWeight: elem.fontWeight || 'normal',
+                  fontStyle: elem.fontStyle || 'normal',
                   background: 'rgba(0,0,0,0.3)',
                   border: 'none',
                   outline: 'none',
@@ -186,6 +188,7 @@ export function SlideEditorCanvas({
                 fontSize: elem.fontSize || 18,
                 color: elem.color || '#ffffff',
                 fontWeight: elem.fontWeight || 'normal',
+                fontStyle: elem.fontStyle || 'normal',
                 display: 'block',
                 whiteSpace: 'pre-wrap',
               }}>
@@ -208,6 +211,7 @@ export function SlideEditorCanvas({
             {isSelected && (
               <div
                 onMouseDown={(e) => handleResizeMouseDown(e, elem.id)}
+                onClick={(e) => e.stopPropagation()}
                 style={{
                   position: 'absolute',
                   right: -5,

@@ -33,6 +33,7 @@ export function SectionGenericSlideLayout({ slide, branding }: Props) {
   );
 
   const cols = numericFields.length <= 3 ? numericFields.length || 1 : numericFields.length <= 6 ? 3 : 4;
+  const hasOverlay = (id: string) => slide.overlayElements?.some(e => e.id === id);
 
   return (
     <div style={{
@@ -41,14 +42,16 @@ export function SectionGenericSlideLayout({ slide, branding }: Props) {
       height: '100%',
       padding: '48px 56px',
     }}>
-      <h2 style={{
-        fontSize: 32,
-        fontWeight: 700,
-        color: '#ffffff',
-        marginBottom: 8,
-      }}>
-        {slide.title}
-      </h2>
+      {!hasOverlay('__title__') && (
+        <h2 style={{
+          fontSize: 32,
+          fontWeight: 700,
+          color: '#ffffff',
+          marginBottom: 8,
+        }}>
+          {slide.title}
+        </h2>
+      )}
       {slide.section?.subtitle && (
         <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.5)', marginBottom: 28 }}>
           {slide.section.subtitle}
