@@ -28,7 +28,9 @@ export function PageSummarySlideLayout({ slide, branding }: Props) {
       height: '100%',
       padding: '48px 56px',
     }}>
-      {!hasOverlay('__title__') && (
+      {hasOverlay('__title__') ? (
+        <div style={{ height: ps.subtitle && hasOverlay('__subtitle__') ? 64 : 44 }} />
+      ) : (
         <h2 style={{
           fontSize: 28,
           fontWeight: 700,
@@ -38,7 +40,7 @@ export function PageSummarySlideLayout({ slide, branding }: Props) {
           {slide.title}
         </h2>
       )}
-      {ps.subtitle && (
+      {!hasOverlay('__subtitle__') && ps.subtitle && (
         <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.5)', marginBottom: 28 }}>
           {ps.subtitle}
         </p>

@@ -83,6 +83,24 @@ function makeMetaElement(content: string, x: number, y: number, width: number): 
   };
 }
 
+function makeSectionOverlays(
+  title: string,
+  subtitle: string | undefined,
+  titleFontSize: number,
+): OverlayElement[] {
+  const titleY = 48;
+  const titleHeight = Math.ceil(titleFontSize * 1.4);
+  const overlays: OverlayElement[] = [
+    makeTitleElement(title, 56, titleY, 600, titleFontSize, '700', '#ffffff'),
+  ];
+  if (subtitle) {
+    overlays.push(
+      makeSubtitleElement(subtitle, 56, titleY + titleHeight + 8, 500, 15),
+    );
+  }
+  return overlays;
+}
+
 interface GenerateOptions {
   tabs: ReportTab[];
   stories: ReportStory[];
@@ -167,12 +185,13 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
         id: `summary-${ps.id}`,
         type: 'page-summary',
         title: psTitle,
+        subtitle: ps.subtitle,
         pageSummary: ps,
         tabId: tab.id,
         enabled: true,
         order: order++,
         contentLayout: { ...DEFAULT_LAYOUT },
-        overlayElements: [makeTitleElement(psTitle, 56, 48, 500, 28, '700', '#ffffff')],
+        overlayElements: makeSectionOverlays(psTitle, ps.subtitle, 28),
       });
     }
 
@@ -184,28 +203,31 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
       for (const pair of pairs) {
         if (pair.length === 2) {
           const combinedTitle = `${pair[0].title} & ${pair[1].title}`;
+          const combinedSub = pair[0].subtitle || pair[1].subtitle || undefined;
           slides.push({
             id: `section-${pair[0].id}-${pair[1].id}`,
             type: getSectionSlideType(pair[0].id),
             title: combinedTitle,
+            subtitle: combinedSub,
             section: { ...pair[0], fields: [...pair[0].fields, ...pair[1].fields] },
             tabId: tab.id,
             enabled: true,
             order: order++,
             contentLayout: { ...DEFAULT_LAYOUT },
-            overlayElements: [makeTitleElement(combinedTitle, 56, 48, 600, 32, '700', '#ffffff')],
+            overlayElements: makeSectionOverlays(combinedTitle, combinedSub, 32),
           });
         } else {
           slides.push({
             id: `section-${pair[0].id}`,
             type: getSectionSlideType(pair[0].id),
             title: pair[0].title,
+            subtitle: pair[0].subtitle,
             section: pair[0],
             tabId: tab.id,
             enabled: true,
             order: order++,
             contentLayout: { ...DEFAULT_LAYOUT },
-            overlayElements: [makeTitleElement(pair[0].title, 56, 48, 600, 32, '700', '#ffffff')],
+            overlayElements: makeSectionOverlays(pair[0].title, pair[0].subtitle, 32),
           });
         }
       }
@@ -215,12 +237,13 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
           id: `section-${section.id}`,
           type: getSectionSlideType(section.id),
           title: section.title,
+          subtitle: section.subtitle,
           section,
           tabId: tab.id,
           enabled: true,
           order: order++,
           contentLayout: { ...DEFAULT_LAYOUT },
-          overlayElements: [makeTitleElement(section.title, 56, 48, 600, 32, '700', '#ffffff')],
+          overlayElements: makeSectionOverlays(section.title, section.subtitle, 32),
         });
       }
 
@@ -240,7 +263,7 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
             enabled: true,
             order: order++,
             contentLayout: { ...DEFAULT_LAYOUT },
-            overlayElements: [makeTitleElement(combinedTitle, 56, 48, 600, 28, '700', '#ffffff')],
+            overlayElements: makeSectionOverlays(combinedTitle, undefined, 28),
           });
         } else {
           slides.push({
@@ -252,7 +275,7 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
             enabled: true,
             order: order++,
             contentLayout: { ...DEFAULT_LAYOUT },
-            overlayElements: [makeTitleElement(pair[0].graph.title, 56, 48, 600, 28, '700', '#ffffff')],
+            overlayElements: makeSectionOverlays(pair[0].graph.title, undefined, 28),
           });
         }
       }
@@ -266,7 +289,7 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
           enabled: true,
           order: order++,
           contentLayout: { ...DEFAULT_LAYOUT },
-          overlayElements: [makeTitleElement(rg.graph.title, 56, 48, 600, 28, '700', '#ffffff')],
+          overlayElements: makeSectionOverlays(rg.graph.title, undefined, 28),
         });
       }
     } else {
@@ -275,12 +298,13 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
           id: `section-${section.id}`,
           type: getSectionSlideType(section.id),
           title: section.title,
+          subtitle: section.subtitle,
           section,
           tabId: tab.id,
           enabled: true,
           order: order++,
           contentLayout: { ...DEFAULT_LAYOUT },
-          overlayElements: [makeTitleElement(section.title, 56, 48, 600, 32, '700', '#ffffff')],
+          overlayElements: makeSectionOverlays(section.title, section.subtitle, 32),
         });
       }
 
@@ -294,7 +318,7 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
           enabled: true,
           order: order++,
           contentLayout: { ...DEFAULT_LAYOUT },
-          overlayElements: [makeTitleElement(rg.graph.title, 56, 48, 600, 28, '700', '#ffffff')],
+          overlayElements: makeSectionOverlays(rg.graph.title, undefined, 28),
         });
       }
     }
@@ -315,7 +339,7 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
           enabled: true,
           order: order++,
           contentLayout: { ...DEFAULT_LAYOUT },
-          overlayElements: [makeTitleElement(storyTitle, 56, 48, 600, 32, '700', '#ffffff')],
+          overlayElements: makeSectionOverlays(storyTitle, undefined, 32),
         });
       });
     }
@@ -336,7 +360,7 @@ export function generateSlidesFromDashboard(options: GenerateOptions): SlideData
           enabled: true,
           order: order++,
           contentLayout: { ...DEFAULT_LAYOUT },
-          overlayElements: [makeTitleElement(priorityTitle, 56, 48, 600, 32, '700', '#ffffff')],
+          overlayElements: makeSectionOverlays(priorityTitle, undefined, 32),
         });
       });
     }

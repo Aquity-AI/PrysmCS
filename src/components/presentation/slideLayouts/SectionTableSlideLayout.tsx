@@ -34,7 +34,9 @@ export function SectionTableSlideLayout({ slide, branding }: Props) {
       height: '100%',
       padding: '48px 56px',
     }}>
-      {!hasOverlay('__title__') && (
+      {hasOverlay('__title__') ? (
+        <div style={{ height: slide.section?.subtitle && hasOverlay('__subtitle__') ? 72 : 48 }} />
+      ) : (
         <h2 style={{
           fontSize: 32,
           fontWeight: 700,
@@ -44,7 +46,7 @@ export function SectionTableSlideLayout({ slide, branding }: Props) {
           {slide.title}
         </h2>
       )}
-      {slide.section?.subtitle && (
+      {!hasOverlay('__subtitle__') && slide.section?.subtitle && (
         <p style={{ fontSize: 15, color: 'rgba(255,255,255,0.5)', marginBottom: 32 }}>
           {slide.section.subtitle}
         </p>

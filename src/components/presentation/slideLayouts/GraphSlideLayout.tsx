@@ -140,7 +140,9 @@ export function GraphSlideLayout({ slide, branding }: Props) {
       height: '100%',
       padding: '48px 56px',
     }}>
-      {!hasOverlay('__title__') && (
+      {hasOverlay('__title__') ? (
+        <div style={{ height: 44 }} />
+      ) : (
         <h2 style={{
           fontSize: 28,
           fontWeight: 700,

@@ -108,6 +108,7 @@ export function PresentationEditor({
 }: PresentationEditorProps) {
   const [editingSlideId, setEditingSlideId] = useState<string | null>(null);
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
+  const [autoEditElementId, setAutoEditElementId] = useState<string | null>(null);
   const [showBgPicker, setShowBgPicker] = useState(false);
   const [draggedSlide, setDraggedSlide] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -207,10 +208,11 @@ export function PresentationEditor({
 
   const addTextElement = () => {
     if (!editingSlideId) return;
+    const elemId = `elem-${Date.now()}`;
     const newElem: OverlayElement = {
-      id: `elem-${Date.now()}`,
+      id: elemId,
       type: 'text',
-      content: 'Double-click to edit',
+      content: '',
       x: 50, y: 50, width: 200, height: 60,
       fontSize: 18, color: '#ffffff', fontWeight: 'normal',
     };
@@ -220,7 +222,9 @@ export function PresentationEditor({
       }
       return s;
     }));
-    setSelectedElement(newElem.id);
+    setSelectedElement(elemId);
+    setAutoEditElementId(elemId);
+    requestAnimationFrame(() => setAutoEditElementId(null));
   };
 
   const addImageElement = () => fileInputRef.current?.click();
@@ -559,6 +563,7 @@ export function PresentationEditor({
                   slide={currentEditingSlide}
                   branding={branding}
                   selectedElement={selectedElement}
+                  autoEditElementId={autoEditElementId}
                   onSelectElement={setSelectedElement}
                   onUpdateElement={updateElement}
                   onDeleteElement={deleteElement}
