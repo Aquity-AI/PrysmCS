@@ -5782,6 +5782,27 @@ function ReportUploadPage({ clientId }) {
                   </div>
                   <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
                     {healthDot(r.health_safety)}{healthDot(r.health_cost)}{healthDot(r.health_schedule)}{healthDot(r.health_risk)}
+                    <button
+                      onClick={async (e) => {
+                        e.stopPropagation();
+                        if (!confirm(`Delete report "${r.project_name}" (${r.reporting_period})?`)) return;
+                        for (const table of ['project_milestones','project_cost_summary','project_cost_details','project_sap_actuals','project_sap_commitments','project_variance_analysis']) {
+                          await supabase.from(table).delete().eq('report_id', r.id);
+                        }
+                        await supabase.from('project_reports').delete().eq('id', r.id);
+                        setReports(prev => prev.filter(rep => rep.id !== r.id));
+                        setSelectedReport(null);
+                      }}
+                      style={{
+                        background: 'none', border: '1px solid #fecaca', borderRadius: 6,
+                        padding: '4px 8px', cursor: 'pointer', color: '#ef4444',
+                        fontSize: '0.75rem', display: 'flex', alignItems: 'center', gap: 4,
+                      }}
+                      onMouseEnter={(e) => { e.currentTarget.style.background = '#fef2f2'; }}
+                      onMouseLeave={(e) => { e.currentTarget.style.background = 'none'; }}
+                    >
+                      <Trash2 size={14} /> Delete
+                    </button>
                   </div>
                 </div>
 
