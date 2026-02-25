@@ -19,7 +19,6 @@ import { IconPickerDropdown } from './IconPickerDropdown';
 import { DeletedAccountsPanel } from './settings/DeletedAccountsPanel';
 import { EditLayoutProvider, EditLayoutButton, DashboardGraphGrid, SavedGraphsList, useEditLayout } from './dashboard-graphs';
 import { invalidateBrandingPaletteCache } from './dashboard-graphs/brandingPalette';
-import { SignInCard } from './SignInCard';
 import { MetricsManager } from './metrics-management';
 import { PDFReportModal as DynamicPDFReportModal } from './report';
 import {
@@ -40,6 +39,8 @@ import {
   DragGhostOverlay,
   DropPlaceholder,
 } from './widget-layout';
+
+import * as XLSX from 'xlsx';
 
 const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://placeholder.supabase.co';
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'placeholder-key';
@@ -3817,18 +3818,33 @@ function AuthProvider({ children }) {
 
 function LoginPage({ onLogin }) {
   console.log('[PrysmCS] LoginPage rendering');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [isLoading, setIsLoading] = useState(false);
   const { login } = useAuth();
   const { customization } = useCustomization();
   const branding = customization.branding;
-
-  const handleSubmit = async (email, password) => {
+  console.log('[PrysmCS] LoginPage branding:', branding);
+  
+  // Determine the background - use sidebar bg, or create gradient from brand colors
+  const pageBackground = branding.sidebarBg || 
+    `linear-gradient(135deg, ${branding.secondaryColor || '#0d9488'} 0%, ${branding.primaryColor || '#14b8a6'} 50%, ${branding.accentColor || '#5eead4'} 100%)`;
+  
+  const headerBackground = branding.sidebarBg || 
+    `linear-gradient(135deg, ${branding.secondaryColor || '#0d9488'}, ${branding.primaryColor || '#14b8a6'})`;
+  
+  const handleSubmit = async () => {
+    if (isLoading || !email || !password) return;
+    
     setError('');
     setIsLoading(true);
+    
     try {
       const result = await login(email, password);
       setIsLoading(false);
+      
       if (!result.success) {
         setError(result.error);
       }
@@ -3837,10 +3853,14 @@ function LoginPage({ onLogin }) {
       setError('An error occurred. Please try again.');
     }
   };
-
-  const handleQuickLogin = async (demoEmail, demoPassword) => {
+  
+  const quickLogin = async (demoEmail, demoPassword) => {
+    setEmail(demoEmail);
+    setPassword(demoPassword);
     setError('');
     setIsLoading(true);
+    
+    // Small delay to show the credentials being filled in
     setTimeout(async () => {
       try {
         const result = await login(demoEmail, demoPassword);
@@ -3854,15 +3874,133 @@ function LoginPage({ onLogin }) {
       }
     }, 300);
   };
-
+  
   return (
-    <SignInCard
-      branding={branding}
-      onSubmit={handleSubmit}
-      onQuickLogin={handleQuickLogin}
-      isLoading={isLoading}
-      error={error}
-    />
+    <div className="login-page" style={{ background: pageBackground }}>
+      <div className="login-container">
+        <div className="login-header" style={{ background: headerBackground }}>
+          {branding.logoMode === 'full-image' && branding.logoUrl ? (
+            // Full image mode - just show the uploaded logo
+            <img 
+              src={branding.logoUrl} 
+              alt={branding.platformName} 
+              style={{ maxWidth: 200, maxHeight: 60, objectFit: 'contain', marginBottom: 16 }} 
+            />
+          ) : (
+            // Icon + text modes (default or icon-text)
+            <div className="login-logo" style={{ background: `linear-gradient(135deg, ${branding.primaryColor}, ${branding.secondaryColor})` }}>
+              {branding.logoMode === 'icon-text' && branding.logoUrl ? (
+                <img src={branding.logoUrl} alt="" style={{ maxWidth: 48, maxHeight: 48, objectFit: 'contain' }} />
+              ) : (
+                <Shield size={48} />
+              )}
+            </div>
+          )}
+          {branding.logoMode !== 'full-image' && (
+            <h1 style={{ fontFamily: `'${branding.fontFamily || 'DM Sans'}', sans-serif` }}>{branding.platformName} Dashboard</h1>
+          )}
+        </div>
+        
+        <form className="login-form" onSubmit={(e) => e.preventDefault()}>
+          {error && (
+            <div className="login-error">
+              <AlertTriangle size={16} />
+              {error}
+            </div>
+          )}
+          
+          <div className="login-field">
+            <label>Email Address</label>
+            <div className="login-input-wrapper">
+              <Mail size={18} />
+              <input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="Enter your email"
+                autoComplete="email"
+              />
+            </div>
+          </div>
+          
+          <div className="login-field">
+            <label>Password</label>
+            <div className="login-input-wrapper has-toggle">
+              <Lock size={18} />
+              <input
+                type={showPassword ? 'text' : 'password'}
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                placeholder="Enter your password"
+                autoComplete="current-password"
+              />
+              <button
+                type="button"
+                className="login-password-toggle"
+                onClick={() => setShowPassword(!showPassword)}
+                title={showPassword ? 'Hide password' : 'Show password'}
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+          </div>
+          
+          <button 
+            type="button"
+            className="login-submit"
+            disabled={isLoading || !email || !password}
+            onClick={handleSubmit}
+            style={{
+              width: '100%',
+              padding: '14px',
+              background: `linear-gradient(135deg, ${branding.secondaryColor}, ${branding.primaryColor})`,
+              color: 'white',
+              border: 'none',
+              borderRadius: '8px',
+              fontSize: '16px',
+              fontWeight: '600',
+              cursor: (isLoading || !email || !password) ? 'not-allowed' : 'pointer',
+              opacity: (isLoading || !email || !password) ? 0.7 : 1,
+            }}
+          >
+            {isLoading ? 'Signing in...' : 'Sign In'}
+          </button>
+        </form>
+
+        <div className="login-demo-credentials">
+          <p><strong>Quick Demo Login:</strong></p>
+          <div className="demo-buttons">
+            <button
+              type="button"
+              className="demo-login-btn admin"
+              onClick={() => quickLogin('admin@prysmcs.com', 'Admin123!')}
+              disabled={isLoading}
+            >
+              <span className="demo-btn-role">Admin</span>
+              <span className="demo-btn-desc">Full access</span>
+            </button>
+            <button
+              type="button"
+              className="demo-login-btn client"
+              onClick={() => quickLogin('account@prysmcs.com', 'Client123!')}
+              disabled={isLoading}
+            >
+              <span className="demo-btn-role">View Only</span>
+              <span className="demo-btn-desc">Read-only access</span>
+            </button>
+            <button
+              type="button"
+              className="demo-login-btn csm"
+              onClick={() => quickLogin('dataentry@prysmcs.com', 'Csm123!')}
+              disabled={isLoading}
+            >
+              <span className="demo-btn-role">Data Entry</span>
+              <span className="demo-btn-desc">Data management</span>
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -5204,6 +5342,490 @@ function ProtectedContent({ permission, children, fallback = null }) {
   }
   
   return children;
+}
+
+// ============================================================
+// PROJECT REPORT UPLOAD PAGE
+// ============================================================
+
+function ReportUploadPage({ clientId }) {
+  const [file, setFile] = useState(null);
+  const [preview, setPreview] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [saving, setSaving] = useState(false);
+  const [error, setError] = useState(null);
+  const [success, setSuccess] = useState(null);
+  const [reports, setReports] = useState([]);
+  const [selectedReport, setSelectedReport] = useState(null);
+  const [dragOver, setDragOver] = useState(false);
+  const fileInputRef = useRef(null);
+
+  // Fetch existing reports for this client
+  useEffect(() => {
+    async function fetchReports() {
+      const { data } = await supabase
+        .from('project_reports')
+        .select('*')
+        .eq('client_id', clientId)
+        .order('reporting_period', { ascending: false });
+      if (data) setReports(data);
+    }
+    fetchReports();
+  }, [clientId, success]);
+
+  // --- Parser helpers ---
+  function safeNum(val, def = 0) {
+    if (val == null || val === '' || val === undefined) return def;
+    const n = Number(val);
+    return isNaN(n) ? def : n;
+  }
+  function safeStr(val, def = '') {
+    if (val == null || val === undefined) return def;
+    return String(val).trim();
+  }
+  function safeDate(val) {
+    if (val == null) return null;
+    if (val instanceof Date) return val.toISOString().split('T')[0];
+    if (typeof val === 'number') {
+      const d = XLSX.SSF.parse_date_code(val);
+      if (d) return `${d.y}-${String(d.m).padStart(2, '0')}-${String(d.d).padStart(2, '0')}`;
+    }
+    try { const d = new Date(val); if (!isNaN(d.getTime())) return d.toISOString().split('T')[0]; } catch {}
+    return null;
+  }
+  function cellVal(sheet, row, col) {
+    const addr = XLSX.utils.encode_cell({ r: row, c: col });
+    const c = sheet[addr];
+    return c ? c.v : null;
+  }
+
+  // --- Parse Excel file ---
+  async function parseFile(f) {
+    const buffer = await f.arrayBuffer();
+    const workbook = XLSX.read(buffer, { type: 'array', cellDates: true });
+    const sheets = workbook.SheetNames;
+    const result = { sourceFile: f.name, sheetsFound: sheets };
+
+    // Dashboard
+    if (sheets.includes('Dashboard')) {
+      const s = workbook.Sheets['Dashboard'];
+      const statusMap = { 0: 'green', 50: 'yellow', 100: 'red' };
+      const hi = {};
+      [[4,'safety'],[5,'cost'],[6,'schedule'],[7,'risk']].forEach(([r, name]) => {
+        const v = safeNum(cellVal(s, r, 1), -1);
+        hi[name] = { status: statusMap[v] || 'unknown', rawValue: v >= 0 ? v : null, comment: safeStr(cellVal(s, r, 2)) };
+      });
+      const bs = {};
+      [[4,'approvedCarAmount'],[5,'controlBudget'],[6,'committedToDate'],[7,'expendedToDate'],[8,'estimateToComplete'],[9,'forecast'],[10,'forecastVariance'],[11,'periodVariance']].forEach(([r, key]) => {
+        bs[key] = { capital: safeNum(cellVal(s, r, 9)), expense: safeNum(cellVal(s, r, 10)), total: safeNum(cellVal(s, r, 11)) };
+      });
+      const milestoneNames = ['Concept Funding Approved','Basis of Design Complete','Implementation Funding Approved','90% Design Review','Issued for Construction Drawings Complete','Construction Start','Final Equipment Procurement Complete','Final Equipment FAT','Mechanical Completion','CQV Complete / Beneficial Use','Project Closeout'];
+      const milestones = milestoneNames.map((name, i) => ({
+        name: safeStr(cellVal(s, 14+i, 0)) || name,
+        baselineDate: safeDate(cellVal(s, 14+i, 3)),
+        forecastDate: safeDate(cellVal(s, 14+i, 4)),
+        status: safeNum(cellVal(s, 14+i, 5), -1) >= 0 ? safeNum(cellVal(s, 14+i, 5)) : null,
+      }));
+      const contingency = {};
+      [[14,'startingBudget'],[15,'drawdownToDate'],[16,'drawdownThisPeriod'],[17,'remaining']].forEach(([r, key]) => {
+        contingency[key] = { capital: safeNum(cellVal(s, r, 9)), expense: safeNum(cellVal(s, r, 10)), total: safeNum(cellVal(s, r, 11)) };
+      });
+      result.dashboard = {
+        projectName: safeStr(cellVal(s, 1, 1)),
+        carNumber: safeStr(cellVal(s, 2, 1)),
+        reportingPeriod: safeDate(cellVal(s, 1, 11)),
+        issueDate: safeDate(cellVal(s, 2, 11)),
+        healthIndicators: hi, budgetStatus: bs, milestones, contingency,
+        safety: {
+          thisMonth: { hoursWorked: safeNum(cellVal(s,10,1)), lostWorkDays: safeNum(cellVal(s,10,2)), recordables: safeNum(cellVal(s,10,3)), nearMiss: safeNum(cellVal(s,10,4)) },
+          totalProject: { hoursWorked: safeNum(cellVal(s,11,1)), lostWorkDays: safeNum(cellVal(s,11,2)), recordables: safeNum(cellVal(s,11,3)), nearMiss: safeNum(cellVal(s,11,4)) },
+        },
+      };
+    }
+
+    // Cost Report Summary
+    if (sheets.includes('Cost Report Summary')) {
+      const s = workbook.Sheets['Cost Report Summary'];
+      const items = [];
+      [7,9,11,13,15,17,19,21,25,27,29,31].forEach(r => {
+        const wbs = safeStr(cellVal(s, r, 1));
+        const desc = safeStr(cellVal(s, r, 3));
+        if (!wbs && !desc) return;
+        items.push({
+          wbs, description: desc,
+          carExecutionBudget: safeNum(cellVal(s,r,5)), controlBudget: safeNum(cellVal(s,r,6)),
+          committedToDate: safeNum(cellVal(s,r,7)), expendedToDate: safeNum(cellVal(s,r,8)),
+          estimateToComplete: safeNum(cellVal(s,r,9)), forecast: safeNum(cellVal(s,r,10)),
+          variance: safeNum(cellVal(s,r,11)), periodVariance: safeNum(cellVal(s,r,17)),
+        });
+      });
+      result.costSummary = { header: { projectManager: safeStr(cellVal(s,3,7)), site: safeStr(cellVal(s,2,10)) }, lineItems: items };
+    }
+
+    // Cost Report Details
+    if (sheets.includes('Cost Report Details')) {
+      const s = workbook.Sheets['Cost Report Details'];
+      const range = XLSX.utils.decode_range(s['!ref'] || 'A1');
+      const items = [];
+      let curWbs = '', curWbsDesc = '';
+      for (let i = 5; i <= range.e.r; i++) {
+        const wbs = safeStr(cellVal(s,i,1)); const activity = safeStr(cellVal(s,i,2)); const vendor = safeStr(cellVal(s,i,4));
+        if (wbs && (wbs.startsWith('CD') || wbs.startsWith('ED'))) { curWbs = wbs; curWbsDesc = activity; }
+        if (!vendor && !activity) continue;
+        const committed = safeNum(cellVal(s,i,12)); const expended = safeNum(cellVal(s,i,13)); const forecast = safeNum(cellVal(s,i,20));
+        if (committed === 0 && expended === 0 && forecast === 0) continue;
+        items.push({ wbs: curWbs, wbsDescription: curWbsDesc, activity, vendorName: vendor, poNumber: safeStr(cellVal(s,i,5)),
+          committedToDate: committed, expendedToDate: expended, estimateToComplete: safeNum(cellVal(s,i,19)),
+          forecast, forecastVariance: safeNum(cellVal(s,i,21)), periodVariance: safeNum(cellVal(s,i,23)), notes: safeStr(cellVal(s,i,24)) });
+      }
+      result.costDetails = items;
+    }
+
+    // CJ 74
+    if (sheets.includes('CJ 74')) {
+      const s = workbook.Sheets['CJ 74'];
+      const range = XLSX.utils.decode_range(s['!ref'] || 'A1');
+      const items = [];
+      for (let i = 1; i <= range.e.r; i++) {
+        const fy = safeStr(cellVal(s,i,0)); if (!fy) continue;
+        items.push({ fiscalYear: fy, period: safeStr(cellVal(s,i,1)), postingDate: safeDate(cellVal(s,i,3)),
+          wbsElement: safeStr(cellVal(s,i,5)), vendorName: safeStr(cellVal(s,i,8)),
+          poText: safeStr(cellVal(s,i,7)), value: safeNum(cellVal(s,i,11)), currency: safeStr(cellVal(s,i,12)) || 'USD' });
+      }
+      result.cj74Actuals = items;
+    }
+
+    // CJ 76
+    if (sheets.includes('CJ 76')) {
+      const s = workbook.Sheets['CJ 76'];
+      const range = XLSX.utils.decode_range(s['!ref'] || 'A1');
+      const items = [];
+      for (let i = 1; i <= range.e.r; i++) {
+        const proj = safeStr(cellVal(s,i,0)); if (!proj) continue;
+        items.push({ wbsElement: safeStr(cellVal(s,i,1)), refDocument: safeStr(cellVal(s,i,2)),
+          planValue: safeNum(cellVal(s,i,3)), vendor: safeStr(cellVal(s,i,5)),
+          description: safeStr(cellVal(s,i,7)), committedValue: safeNum(cellVal(s,i,14)), currency: safeStr(cellVal(s,i,6)) || 'USD' });
+      }
+      result.cj76Commitments = items;
+    }
+
+    return result;
+  }
+
+  // --- Store to Supabase ---
+  async function storeReport(parsed) {
+    const d = parsed.dashboard;
+    const carNumber = d.carNumber;
+
+    const { data: reportData, error: reportError } = await supabase
+      .from('project_reports')
+      .upsert({
+        client_id: clientId, car_number: carNumber, project_name: d.projectName,
+        reporting_period: d.reportingPeriod, issue_date: d.issueDate,
+        source_filename: parsed.sourceFile,
+        site: parsed.costSummary?.header?.site || '',
+        project_manager: parsed.costSummary?.header?.projectManager || '',
+        health_safety: d.healthIndicators?.safety?.status || 'unknown',
+        health_cost: d.healthIndicators?.cost?.status || 'unknown',
+        health_schedule: d.healthIndicators?.schedule?.status || 'unknown',
+        health_risk: d.healthIndicators?.risk?.status || 'unknown',
+        approved_car_total: d.budgetStatus?.approvedCarAmount?.total || 0,
+        control_budget_total: d.budgetStatus?.controlBudget?.total || 0,
+        committed_total: d.budgetStatus?.committedToDate?.total || 0,
+        expended_total: d.budgetStatus?.expendedToDate?.total || 0,
+        etc_total: d.budgetStatus?.estimateToComplete?.total || 0,
+        forecast_total: d.budgetStatus?.forecast?.total || 0,
+        forecast_variance_total: d.budgetStatus?.forecastVariance?.total || 0,
+        budget_status: d.budgetStatus, safety_data: d.safety,
+        contingency_data: d.contingency, raw_dashboard_json: d,
+      }, { onConflict: 'client_id,car_number,reporting_period' })
+      .select('id').single();
+
+    if (reportError) throw reportError;
+    const reportId = reportData.id;
+
+    // Clear old child data
+    for (const table of ['project_milestones','project_cost_summary','project_cost_details','project_sap_actuals','project_sap_commitments']) {
+      await supabase.from(table).delete().eq('report_id', reportId);
+    }
+
+    // Milestones
+    if (d.milestones?.length) {
+      await supabase.from('project_milestones').insert(d.milestones.map((m, i) => ({
+        report_id: reportId, client_id: clientId, car_number: carNumber,
+        milestone_name: m.name, baseline_date: m.baselineDate, forecast_date: m.forecastDate,
+        status: m.status != null ? ({0:'green',50:'yellow',100:'red'})[m.status] || null : null, sort_order: i,
+      })));
+    }
+
+    // Cost summary
+    if (parsed.costSummary?.lineItems?.length) {
+      await supabase.from('project_cost_summary').insert(parsed.costSummary.lineItems.map(item => ({
+        report_id: reportId, client_id: clientId, car_number: carNumber,
+        wbs_code: item.wbs, description: item.description,
+        cost_type: item.wbs.startsWith('ED') ? 'expense' : 'capital',
+        car_execution_budget: item.carExecutionBudget, control_budget: item.controlBudget,
+        committed_to_date: item.committedToDate, expended_to_date: item.expendedToDate,
+        estimate_to_complete: item.estimateToComplete, forecast: item.forecast,
+        variance: item.variance, period_variance: item.periodVariance,
+      })));
+    }
+
+    // Cost details
+    if (parsed.costDetails?.length) {
+      await supabase.from('project_cost_details').insert(parsed.costDetails.map(item => ({
+        report_id: reportId, client_id: clientId, car_number: carNumber,
+        wbs_code: item.wbs, wbs_description: item.wbsDescription, activity: item.activity,
+        vendor_name: item.vendorName, po_number: item.poNumber,
+        committed_to_date: item.committedToDate, expended_to_date: item.expendedToDate,
+        estimate_to_complete: item.estimateToComplete, forecast: item.forecast,
+        forecast_variance: item.forecastVariance, period_variance: item.periodVariance, notes: item.notes,
+      })));
+    }
+
+    // CJ74 actuals
+    if (parsed.cj74Actuals?.length) {
+      await supabase.from('project_sap_actuals').insert(parsed.cj74Actuals.map(item => ({
+        report_id: reportId, client_id: clientId, car_number: carNumber,
+        fiscal_year: item.fiscalYear, period: item.period, posting_date: item.postingDate,
+        wbs_element: item.wbsElement, po_text: item.poText, vendor_name: item.vendorName,
+        value: item.value, currency: item.currency,
+      })));
+    }
+
+    // CJ76 commitments
+    if (parsed.cj76Commitments?.length) {
+      await supabase.from('project_sap_commitments').insert(parsed.cj76Commitments.map(item => ({
+        report_id: reportId, client_id: clientId, car_number: carNumber,
+        wbs_element: item.wbsElement, ref_document: item.refDocument,
+        plan_value: item.planValue, vendor: item.vendor, description: item.description,
+        committed_value: item.committedValue, currency: item.currency,
+      })));
+    }
+
+    return reportId;
+  }
+
+  // --- Handlers ---
+  async function handleFileSelect(e) {
+    const selectedFile = e.target.files?.[0];
+    if (!selectedFile) return;
+    setFile(selectedFile);
+    setLoading(true);
+    setError(null);
+    setSuccess(null);
+    setPreview(null);
+    try {
+      const parsed = await parseFile(selectedFile);
+      if (!parsed.dashboard) throw new Error('Dashboard sheet not found in file');
+      setPreview(parsed);
+    } catch (err) {
+      setError('Failed to parse file: ' + err.message);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function handleUpload() {
+    if (!preview) return;
+    setSaving(true);
+    setError(null);
+    try {
+      await storeReport(preview);
+      setSuccess(`Report "${preview.dashboard.projectName}" saved successfully!`);
+      setFile(null);
+      setPreview(null);
+    } catch (err) {
+      setError('Failed to save: ' + err.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  function handleDrop(e) {
+    e.preventDefault();
+    setDragOver(false);
+    handleFileSelect({ target: { files: e.dataTransfer.files } });
+  }
+
+  const healthDot = (status) => {
+    const colors = { green: '#22c55e', yellow: '#eab308', red: '#ef4444', unknown: '#94a3b8' };
+    return <span style={{ display: 'inline-block', width: 12, height: 12, borderRadius: '50%', backgroundColor: colors[status] || colors.unknown, marginRight: 6 }} />;
+  };
+
+  return (
+    <div style={{ padding: '2rem' }}>
+      <h1 style={{ fontSize: '2rem', fontWeight: 700, marginBottom: 8 }}>Project Reports</h1>
+      <p style={{ color: '#64748b', marginBottom: '2rem' }}>Upload and manage capital project monthly status reports</p>
+
+      {/* Upload Zone */}
+      <div
+        onDrop={handleDrop}
+        onDragOver={(e) => { e.preventDefault(); setDragOver(true); }}
+        onDragLeave={() => setDragOver(false)}
+        onClick={() => fileInputRef.current?.click()}
+        style={{
+          border: `2px dashed ${dragOver ? '#06b6d4' : '#cbd5e1'}`,
+          borderRadius: 12, padding: '3rem', textAlign: 'center', cursor: 'pointer',
+          backgroundColor: dragOver ? '#f0fdfa' : '#f8fafc', marginBottom: '1.5rem',
+          transition: 'all 0.2s',
+        }}
+      >
+        <input ref={fileInputRef} type="file" accept=".xlsx,.xls" onChange={handleFileSelect} style={{ display: 'none' }} />
+        <Upload size={40} color="#94a3b8" style={{ marginBottom: 12 }} />
+        <p style={{ fontSize: '1.1rem', fontWeight: 500, color: '#334155' }}>
+          {loading ? 'Parsing file...' : 'Drop Excel report here or click to browse'}
+        </p>
+        <p style={{ fontSize: '0.85rem', color: '#94a3b8', marginTop: 4 }}>Supports BMS Project Monthly Status Report format (.xlsx)</p>
+      </div>
+
+      {/* Error */}
+      {error && (
+        <div style={{ background: '#fef2f2', border: '1px solid #fecaca', borderRadius: 8, padding: '12px 16px', marginBottom: 16, color: '#dc2626', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <AlertCircle size={18} /> {error}
+        </div>
+      )}
+
+      {/* Success */}
+      {success && (
+        <div style={{ background: '#f0fdf4', border: '1px solid #bbf7d0', borderRadius: 8, padding: '12px 16px', marginBottom: 16, color: '#16a34a', display: 'flex', alignItems: 'center', gap: 8 }}>
+          <CheckCircle size={18} /> {success}
+        </div>
+      )}
+
+      {/* Preview */}
+      {preview && (
+        <div style={{ background: '#fff', borderRadius: 12, border: '1px solid #e2e8f0', padding: '1.5rem', marginBottom: '1.5rem' }}>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 16 }}>Extracted Data Preview</h3>
+          <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))', gap: 12, marginBottom: 16 }}>
+            <div style={{ background: '#f8fafc', borderRadius: 8, padding: 12 }}>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Project</div>
+              <div style={{ fontWeight: 600 }}>{preview.dashboard.projectName}</div>
+            </div>
+            <div style={{ background: '#f8fafc', borderRadius: 8, padding: 12 }}>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>CAR Number</div>
+              <div style={{ fontWeight: 600 }}>{preview.dashboard.carNumber}</div>
+            </div>
+            <div style={{ background: '#f8fafc', borderRadius: 8, padding: 12 }}>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Reporting Period</div>
+              <div style={{ fontWeight: 600 }}>{preview.dashboard.reportingPeriod}</div>
+            </div>
+            <div style={{ background: '#f8fafc', borderRadius: 8, padding: 12 }}>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Approved CAR</div>
+              <div style={{ fontWeight: 600, color: '#06b6d4' }}>${(preview.dashboard.budgetStatus?.approvedCarAmount?.total || 0).toLocaleString()}</div>
+            </div>
+            <div style={{ background: '#f8fafc', borderRadius: 8, padding: 12 }}>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Forecast</div>
+              <div style={{ fontWeight: 600, color: '#06b6d4' }}>${(preview.dashboard.budgetStatus?.forecast?.total || 0).toLocaleString()}</div>
+            </div>
+            <div style={{ background: '#f8fafc', borderRadius: 8, padding: 12 }}>
+              <div style={{ fontSize: '0.75rem', color: '#94a3b8', textTransform: 'uppercase', marginBottom: 4 }}>Variance</div>
+              <div style={{ fontWeight: 600, color: (preview.dashboard.budgetStatus?.forecastVariance?.total || 0) > 0 ? '#ef4444' : '#22c55e' }}>
+                ${(preview.dashboard.budgetStatus?.forecastVariance?.total || 0).toLocaleString()}
+              </div>
+            </div>
+          </div>
+
+          {/* Health Indicators */}
+          <div style={{ display: 'flex', gap: 16, marginBottom: 16, flexWrap: 'wrap' }}>
+            {Object.entries(preview.dashboard.healthIndicators || {}).map(([key, val]) => (
+              <div key={key} style={{ display: 'flex', alignItems: 'center', gap: 6 }}>
+                {healthDot(val.status)}
+                <span style={{ fontSize: '0.85rem', textTransform: 'capitalize' }}>{key}</span>
+              </div>
+            ))}
+          </div>
+
+          {/* Data counts */}
+          <div style={{ display: 'flex', gap: 16, flexWrap: 'wrap', fontSize: '0.85rem', color: '#64748b', marginBottom: 20 }}>
+            <span>{preview.dashboard.milestones?.length || 0} milestones</span>
+            <span>{preview.costSummary?.lineItems?.length || 0} cost categories</span>
+            <span>{preview.costDetails?.length || 0} detail lines</span>
+            <span>{preview.cj74Actuals?.length || 0} SAP actuals</span>
+            <span>{preview.cj76Commitments?.length || 0} commitments</span>
+          </div>
+
+          <button
+            onClick={handleUpload}
+            disabled={saving}
+            style={{
+              background: '#06b6d4', color: '#fff', border: 'none', borderRadius: 8,
+              padding: '10px 24px', fontSize: '0.95rem', fontWeight: 600, cursor: saving ? 'not-allowed' : 'pointer',
+              opacity: saving ? 0.7 : 1,
+            }}
+          >
+            {saving ? 'Saving to database...' : 'Confirm & Save Report'}
+          </button>
+        </div>
+      )}
+
+      {/* Existing Reports List */}
+      {reports.length > 0 && (
+        <div>
+          <h3 style={{ fontSize: '1.1rem', fontWeight: 600, marginBottom: 12 }}>Uploaded Reports</h3>
+          <div style={{ display: 'grid', gap: 12 }}>
+            {reports.map(r => (
+              <div
+                key={r.id}
+                onClick={() => setSelectedReport(selectedReport?.id === r.id ? null : r)}
+                style={{
+                  background: '#fff', borderRadius: 12, border: `1px solid ${selectedReport?.id === r.id ? '#06b6d4' : '#e2e8f0'}`,
+                  padding: '1rem 1.25rem', cursor: 'pointer', transition: 'all 0.2s',
+                }}
+              >
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 8 }}>
+                  <div>
+                    <div style={{ fontWeight: 600, fontSize: '0.95rem' }}>{r.project_name}</div>
+                    <div style={{ fontSize: '0.8rem', color: '#94a3b8', marginTop: 2 }}>
+                      CAR: {r.car_number} &middot; Period: {r.reporting_period} &middot; Manager: {r.project_manager}
+                    </div>
+                  </div>
+                  <div style={{ display: 'flex', gap: 12, alignItems: 'center' }}>
+                    {healthDot(r.health_safety)}{healthDot(r.health_cost)}{healthDot(r.health_schedule)}{healthDot(r.health_risk)}
+                  </div>
+                </div>
+
+                {/* Budget summary bar */}
+                <div style={{ display: 'flex', gap: 24, marginTop: 12, fontSize: '0.8rem', flexWrap: 'wrap' }}>
+                  <div><span style={{ color: '#94a3b8' }}>CAR: </span><span style={{ fontWeight: 600 }}>${(r.approved_car_total || 0).toLocaleString()}</span></div>
+                  <div><span style={{ color: '#94a3b8' }}>Committed: </span><span style={{ fontWeight: 600 }}>${(r.committed_total || 0).toLocaleString()}</span></div>
+                  <div><span style={{ color: '#94a3b8' }}>Expended: </span><span style={{ fontWeight: 600 }}>${(r.expended_total || 0).toLocaleString()}</span></div>
+                  <div><span style={{ color: '#94a3b8' }}>Forecast: </span><span style={{ fontWeight: 600 }}>${(r.forecast_total || 0).toLocaleString()}</span></div>
+                  <div><span style={{ color: '#94a3b8' }}>Variance: </span><span style={{ fontWeight: 600, color: (r.forecast_variance_total || 0) > 0 ? '#ef4444' : '#22c55e' }}>${(r.forecast_variance_total || 0).toLocaleString()}</span></div>
+                </div>
+
+                {/* Expanded detail when selected */}
+                {selectedReport?.id === r.id && (
+                  <div style={{ marginTop: 16, paddingTop: 16, borderTop: '1px solid #e2e8f0' }}>
+                    <div style={{ fontSize: '0.85rem', fontWeight: 600, marginBottom: 8 }}>Budget Breakdown</div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr', gap: 8, fontSize: '0.8rem' }}>
+                      <div style={{ fontWeight: 600, color: '#94a3b8' }}></div>
+                      <div style={{ fontWeight: 600, color: '#94a3b8', textAlign: 'right' }}>Capital</div>
+                      <div style={{ fontWeight: 600, color: '#94a3b8', textAlign: 'right' }}>Expense</div>
+                      {['approvedCarAmount','controlBudget','committedToDate','expendedToDate','estimateToComplete','forecast','forecastVariance'].map(key => {
+                        const bsData = r.budget_status?.[key] || {};
+                        const label = key.replace(/([A-Z])/g, ' $1').replace(/^./, s => s.toUpperCase());
+                        return (
+                          <React.Fragment key={key}>
+                            <div>{label}</div>
+                            <div style={{ textAlign: 'right' }}>${(bsData.capital || 0).toLocaleString()}</div>
+                            <div style={{ textAlign: 'right' }}>${(bsData.expense || 0).toLocaleString()}</div>
+                          </React.Fragment>
+                        );
+                      })}
+                    </div>
+                    <div style={{ fontSize: '0.75rem', color: '#94a3b8', marginTop: 12 }}>
+                      Uploaded: {new Date(r.created_at).toLocaleDateString()} &middot; File: {r.source_filename}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+    </div>
+  );
 }
 
 // ============================================================
@@ -19355,6 +19977,20 @@ function Sidebar({ activePage, setActivePage, isOpen = false }) {
           </div>
         )}
 
+        {/* Report Upload */}
+        <div
+          className={`nav-item ${activePage === 'reportUpload' ? "active" : ""}`}
+          onClick={() => setActivePage('reportUpload')}
+          style={{
+            background: activePage === 'reportUpload' ? `${branding.primaryColor}33` : undefined,
+            borderLeftColor: activePage === 'reportUpload' ? branding.primaryColor : 'transparent',
+            color: activePage === 'reportUpload' ? branding.primaryColor : undefined
+          }}
+        >
+          <Upload size={20} />
+          <span>Report Upload</span>
+        </div>
+
         {/* Portfolio Analytics - shown directly */}
         {hasPermission('view_portfolio_analytics') && (
           <div
@@ -27152,6 +27788,7 @@ function PrysmCSDashboardContent() {
         ) : <AccessDeniedMessage />;
       case "audit": return <AuditLogPage />;
       case "portfolio": return hasPermission('view_portfolio_analytics') ? <PortfolioAnalyticsPage /> : <AccessDeniedMessage />;
+      case "reportUpload": return <ReportUploadPage clientId={selectedClientId} />;
       case "customization": return hasPermission('manage_customization') ? <CustomizationPage onNavigate={setActivePage} /> : <AccessDeniedMessage />;
       case "notifications": return <NotificationsPage />;
       case "profile": return <ProfilePage />;
@@ -27159,6 +27796,7 @@ function PrysmCSDashboardContent() {
     }
   };
 
+  // Show login page if not authenticated
   if (!isAuthenticated) {
     return (
       <>
