@@ -1,5 +1,7 @@
-import { Component, type ReactNode } from 'react';
+import { Component, type ReactNode, lazy, Suspense } from 'react';
 import PrysmCSDashboard from './components/prysmcs';
+
+const SuperAdminApp = lazy(() => import('./superadmin/SuperAdminApp'));
 
 interface ErrorBoundaryState {
   hasError: boolean;
@@ -97,7 +99,43 @@ class ErrorBoundary extends Component<{ children: ReactNode }, ErrorBoundaryStat
   }
 }
 
+function isSuperAdminRoute() {
+  const path = window.location.pathname;
+  return path.startsWith('/superadmin') || path.startsWith('/accept-invite');
+}
+
+function LoadingFallback() {
+  return (
+    <div style={{
+      minHeight: '100vh',
+      display: 'flex',
+      alignItems: 'center',
+      justifyContent: 'center',
+      background: 'linear-gradient(135deg, #0a1628 0%, #0f1f3d 50%, #0a1628 100%)',
+    }}>
+      <div style={{
+        width: 24,
+        height: 24,
+        border: '2px solid rgba(14,165,233,0.2)',
+        borderTopColor: '#0ea5e9',
+        borderRadius: '50%',
+        animation: 'spin 0.8s linear infinite',
+      }} />
+    </div>
+  );
+}
+
 function App() {
+  if (isSuperAdminRoute()) {
+    return (
+      <ErrorBoundary>
+        <Suspense fallback={<LoadingFallback />}>
+          <SuperAdminApp />
+        </Suspense>
+      </ErrorBoundary>
+    );
+  }
+
   return (
     <ErrorBoundary>
       <PrysmCSDashboard />
