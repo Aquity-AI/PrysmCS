@@ -3500,7 +3500,8 @@ const AUDIT_ACTIONS = {
   CLIENT_RESTORED: 'CLIENT_RESTORED',
   CLIENT_PURGED: 'CLIENT_PURGED',
   PASSWORD_RESET_REQUESTED: 'PASSWORD_RESET_REQUESTED',
-  SIGNUP: 'SIGNUP'
+  SIGNUP: 'SIGNUP',
+  SUPER_ADMIN_ACCESS: 'SUPER_ADMIN_ACCESS'
 };
 
 // Audit log storage (now using Supabase database)
@@ -3628,6 +3629,46 @@ function useAuth() {
     throw new Error('useAuth must be used within AuthProvider');
   }
   return context;
+}
+
+function useIsSuperAdmin() {
+  const { currentUser } = useAuth();
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
+  const [isCheckingAccess, setIsCheckingAccess] = useState(true);
+
+  useEffect(() => {
+    if (!currentUser?.email) {
+      setIsSuperAdmin(false);
+      setIsCheckingAccess(false);
+      return;
+    }
+
+    let cancelled = false;
+    setIsCheckingAccess(true);
+
+    supabase
+      .from('super_admins')
+      .select('id')
+      .eq('email', currentUser.email)
+      .eq('status', 'active')
+      .maybeSingle()
+      .then(({ data }) => {
+        if (!cancelled) {
+          setIsSuperAdmin(!!data);
+          setIsCheckingAccess(false);
+        }
+      })
+      .catch(() => {
+        if (!cancelled) {
+          setIsSuperAdmin(false);
+          setIsCheckingAccess(false);
+        }
+      });
+
+    return () => { cancelled = true; };
+  }, [currentUser?.email]);
+
+  return { isSuperAdmin, isCheckingAccess };
 }
 
 function AuthProvider({ children }) {
@@ -19215,7 +19256,8 @@ function DashboardSection({ children, widthUnits = 12, className = '', title, su
 
 
 function Sidebar({ activePage, setActivePage, isOpen = false }) {
-  const { currentUser, hasPermission, logout } = useAuth();
+  const { currentUser, hasPermission, logout, logPHIAccess } = useAuth();
+  const { isSuperAdmin, isCheckingAccess } = useIsSuperAdmin();
   const { customization, getEnabledTabs } = useCustomization();
   const [settingsExpanded, setSettingsExpanded] = useState(false);
   
@@ -19432,6 +19474,36 @@ function Sidebar({ activePage, setActivePage, isOpen = false }) {
           </div>
         )}
         
+        {/* Admin Portal entry - only shown to active super admins */}
+        {!isCheckingAccess && isSuperAdmin && (
+          <>
+            <div style={{
+              height: '1px',
+              background: 'rgba(255,255,255,0.08)',
+              margin: '8px 0'
+            }} />
+            <div
+              className="nav-item"
+              title="Switch to Admin Portal"
+              onClick={() => {
+                logPHIAccess(AUDIT_ACTIONS.SUPER_ADMIN_ACCESS, {
+                  action: 'accessed_super_admin_portal',
+                  user: currentUser?.email
+                });
+                window.location.href = '/superadmin';
+              }}
+              style={{
+                color: '#38bdf8',
+                borderLeftColor: 'transparent',
+                opacity: 0.9
+              }}
+            >
+              <Shield size={18} style={{ color: '#38bdf8' }} />
+              <span style={{ fontSize: '13px', fontWeight: 500 }}>Admin Portal</span>
+            </div>
+          </>
+        )}
+
         {/* Logout button */}
         <div className="sidebar-logout">
           <div className="nav-item logout-btn" onClick={logout}>
