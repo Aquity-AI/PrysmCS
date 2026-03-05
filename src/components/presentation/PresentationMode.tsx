@@ -107,6 +107,7 @@ export function PresentationMode({
       animation={globalSettings.animation}
       compactMode={globalSettings.compactMode}
       dataTimestamp={dataTimestamp}
+      clientId={clientId}
       onSlidesChange={setSlides}
       onAnimationChange={(anim) => updateGlobalSettings({ animation: anim })}
       onCompactModeChange={(compact) => updateGlobalSettings({ compactMode: compact })}

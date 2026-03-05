@@ -104,4 +104,34 @@ export interface PresentationBranding {
   logoMode?: string;
 }
 
+export interface GradientColorStop {
+  color: string;
+  position: number;
+}
+
+export interface GradientConfig {
+  type: 'linear' | 'radial';
+  colors: GradientColorStop[];
+  angle: number;
+}
+
+export interface CustomGradient {
+  id: string;
+  client_id: string | null;
+  name: string;
+  category: string;
+  gradient_css: string;
+  gradient_type: string;
+  colors: GradientColorStop[];
+  angle: number;
+  is_preset: boolean;
+  created_at: string;
+}
+
+export interface BackgroundPreset {
+  name: string;
+  value: string;
+  category: string;
+}
+
 export { ReportTab, ReportSection, ReportGraph, ReportPageSummary, ReportStory, ReportPriority, ReportCsmInfo, ReportClientOverview };

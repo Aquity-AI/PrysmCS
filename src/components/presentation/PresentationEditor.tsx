@@ -1,11 +1,12 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react';
 import {
   Play, X, Plus, Type, Image, Eye, EyeOff, GripVertical,
-  Trash2, Palette, RefreshCw, Layers, ChevronDown,
+  Trash2, RefreshCw, Layers, ChevronDown,
 } from 'lucide-react';
 import * as LucideIcons from 'lucide-react';
 import { SlideEditorCanvas } from './SlideEditorCanvas';
 import { slideTypeRegistry } from './slideTypeRegistry';
+import { BackgroundPicker } from './BackgroundPicker';
 import type { SlideData, PresentationBranding, OverlayElement } from './types';
 
 const ANIMATION_OPTIONS = [
@@ -76,6 +77,7 @@ interface PresentationEditorProps {
   animation: string;
   compactMode: boolean;
   dataTimestamp: number;
+  clientId: string;
   onSlidesChange: (updater: (prev: SlideData[]) => SlideData[]) => void;
   onAnimationChange: (anim: string) => void;
   onCompactModeChange: (compact: boolean) => void;
@@ -84,21 +86,13 @@ interface PresentationEditorProps {
   onClose: () => void;
 }
 
-const BG_PRESETS = [
-  { name: 'Dark Teal', value: 'linear-gradient(135deg, #0f3d3e 0%, #0d4f4f 50%, #115e59 100%)' },
-  { name: 'Midnight', value: 'linear-gradient(135deg, #0f172a 0%, #1e293b 50%, #334155 100%)' },
-  { name: 'Ocean', value: 'linear-gradient(135deg, #1e3a5f 0%, #1e40af 50%, #3b82f6 100%)' },
-  { name: 'Forest', value: 'linear-gradient(135deg, #14532d 0%, #166534 50%, #22c55e 100%)' },
-  { name: 'Crimson', value: 'linear-gradient(135deg, #7f1d1d 0%, #b91c1c 50%, #ef4444 100%)' },
-  { name: 'Charcoal', value: 'linear-gradient(135deg, #18181b 0%, #27272a 50%, #3f3f46 100%)' },
-];
-
 export function PresentationEditor({
   slides,
   branding,
   animation,
   compactMode,
   dataTimestamp,
+  clientId,
   onSlidesChange,
   onAnimationChange,
   onCompactModeChange,
@@ -109,7 +103,6 @@ export function PresentationEditor({
   const [editingSlideId, setEditingSlideId] = useState<string | null>(null);
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [autoEditElementId, setAutoEditElementId] = useState<string | null>(null);
-  const [showBgPicker, setShowBgPicker] = useState(false);
   const [draggedSlide, setDraggedSlide] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const slideListRef = useRef<HTMLDivElement>(null);
@@ -512,48 +505,14 @@ export function PresentationEditor({
                   >
                     <Image size={13} /> Add Image
                   </button>
-                  <div style={{ position: 'relative' }}>
-                    <button
-                      onClick={() => setShowBgPicker(!showBgPicker)}
-                      style={{
-                        display: 'flex', alignItems: 'center', gap: 5, padding: '6px 14px',
-                        borderRadius: 7, border: '1px solid rgba(255,255,255,0.12)',
-                        background: 'rgba(255,255,255,0.06)', color: 'rgba(255,255,255,0.7)',
-                        cursor: 'pointer', fontSize: 12,
-                      }}
-                    >
-                      <Palette size={13} /> Background
-                    </button>
-                    {showBgPicker && (
-                      <div style={{
-                        position: 'absolute', top: '100%', left: 0, marginTop: 8,
-                        background: '#1e293b', border: '1px solid rgba(255,255,255,0.12)',
-                        borderRadius: 10, padding: 12, zIndex: 50,
-                        display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: 8,
-                        minWidth: 240,
-                      }}>
-                        <button
-                          onClick={() => { updateSlideBackground(currentEditingSlide.id, defaultBg); setShowBgPicker(false); }}
-                          style={{
-                            width: 72, height: 40, borderRadius: 6, border: '2px solid rgba(255,255,255,0.12)',
-                            background: defaultBg, cursor: 'pointer',
-                          }}
-                          title="Default"
-                        />
-                        {BG_PRESETS.map(preset => (
-                          <button
-                            key={preset.name}
-                            onClick={() => { updateSlideBackground(currentEditingSlide.id, preset.value); setShowBgPicker(false); }}
-                            style={{
-                              width: 72, height: 40, borderRadius: 6, border: '2px solid rgba(255,255,255,0.12)',
-                              background: preset.value, cursor: 'pointer',
-                            }}
-                            title={preset.name}
-                          />
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                  <BackgroundPicker
+                    currentBackground={currentEditingSlide.background}
+                    defaultBackground={defaultBg}
+                    slideId={currentEditingSlide.id}
+                    clientId={clientId}
+                    branding={branding}
+                    onApply={updateSlideBackground}
+                  />
                   <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginLeft: 8 }}>
                     Click slide content to select, drag to move, double-click text to edit
                   </span>
