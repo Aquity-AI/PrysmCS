@@ -852,14 +852,17 @@ const customizationClient = {
       if (deletedSectionIds.length > 0) {
         console.log('[customizationClient] Processing hard-delete for sections:', deletedSectionIds);
 
-        // First, get IDs of page_summaries to delete (needed for child records)
-        const { data: pageSummariesToDelete } = await supabase
+        const { data: pageSummariesToDelete, error: fetchError } = await supabase
           .from('page_summaries')
           .select('id')
           .eq('client_id', clientId)
           .in('section_id', deletedSectionIds);
 
-        // Delete child records from page_summary_items first (foreign key constraint)
+        if (fetchError) {
+          console.error('[customizationClient] Error fetching page_summaries for delete:', fetchError);
+          return { success: false, error: `Failed to delete sections: ${fetchError.message}` };
+        }
+
         if (pageSummariesToDelete && pageSummariesToDelete.length > 0) {
           const summaryIds = pageSummariesToDelete.map(ps => ps.id);
           const { error: itemsDeleteError } = await supabase
@@ -869,10 +872,10 @@ const customizationClient = {
 
           if (itemsDeleteError) {
             console.error('[customizationClient] Error deleting page_summary_items:', itemsDeleteError);
+            return { success: false, error: `Failed to delete section items: ${itemsDeleteError.message}` };
           }
         }
 
-        // Hard-delete from page_summaries
         const { error: psDeleteError } = await supabase
           .from('page_summaries')
           .delete()
@@ -881,11 +884,10 @@ const customizationClient = {
 
         if (psDeleteError) {
           console.error('[customizationClient] Error deleting page_summaries:', psDeleteError);
+          return { success: false, error: `Failed to delete sections: ${psDeleteError.message}` };
         }
 
         console.log(`[customizationClient] Hard-deleted ${deletedSectionIds.length} sections from dedicated tables`);
-        // Clear deletedSectionIds from customization data after hard-delete
-        // since those sections no longer exist and don't need to be tracked
         customizationData = {
           ...customizationData,
           deletedSectionIds: []
@@ -23619,6 +23621,7 @@ function AdminPage({ formData, setFormData, stories, setStories, opportunities, 
   const [localDeletedSectionIds, setLocalDeletedSectionIds] = useState(() => customization.deletedSectionIds || []);
   const [isInitialLoading, setIsInitialLoading] = useState(true);
   const [errorNotification, setErrorNotification] = useState(null);
+  const [justSaved, setJustSaved] = useState(false);
   const [sectionVisibility, setSectionVisibility] = useState(
     customization.sectionVisibility || { stories: true, opportunities: true }
   );
@@ -23631,7 +23634,7 @@ function AdminPage({ formData, setFormData, stories, setStories, opportunities, 
   const hasLocalChangesRef = useRef(false);
 
   const hasUnsavedChanges = useMemo(() => {
-    if (!hasInitializedRef.current || isInitialLoading) {
+    if (!hasInitializedRef.current || isInitialLoading || justSaved) {
       return false;
     }
 
@@ -23644,7 +23647,7 @@ function AdminPage({ formData, setFormData, stories, setStories, opportunities, 
     const schemaChanged = baselineSchema
       ? JSON.stringify(localFormSchema) !== JSON.stringify(baselineSchema)
       : false;
-    const deletedSectionsChanged = JSON.stringify(localDeletedSectionIds) !== JSON.stringify(customization.deletedSectionIds || []);
+    const deletedSectionsChanged = localDeletedSectionIds.length > 0;
 
     const baselineVisibility = baselineSectionVisibilityRef.current || { stories: true, opportunities: true };
     const visibilityChanged = JSON.stringify(sectionVisibility) !== JSON.stringify(baselineVisibility);
@@ -23653,7 +23656,14 @@ function AdminPage({ formData, setFormData, stories, setStories, opportunities, 
 
     hasLocalChangesRef.current = hasChanges;
     return hasChanges;
-  }, [localForm, formData, localStories, stories, localOpportunities, opportunities, localClientInfo, clientInfo, localFormSchema, localDeletedSectionIds, customization.deletedSectionIds, isInitialLoading, sectionVisibility]);
+  }, [localForm, formData, localStories, stories, localOpportunities, opportunities, localClientInfo, clientInfo, localFormSchema, localDeletedSectionIds, isInitialLoading, sectionVisibility, justSaved]);
+
+  useEffect(() => {
+    if (justSaved) {
+      const timer = setTimeout(() => setJustSaved(false), 300);
+      return () => clearTimeout(timer);
+    }
+  }, [justSaved, formData, stories, opportunities, clientInfo]);
 
   useEffect(() => {
     if (onUnsavedChangesUpdate) {
@@ -24053,7 +24063,16 @@ function AdminPage({ formData, setFormData, stories, setStories, opportunities, 
   };
 
   const handleSave = async () => {
-    const currentClientId = clientInfo?.clientId || selectedClientId;
+    const clientId = clientInfo?.clientId || selectedClientId;
+
+    if (!clientId) {
+      console.error('[AdminPage] No clientId available for save. clientInfo:', clientInfo, 'selectedClientId:', selectedClientId);
+      setErrorNotification('No client selected. Please select a client before saving.');
+      setTimeout(() => setErrorNotification(null), 5000);
+      return;
+    }
+
+    console.log('[AdminPage] Save initiated for client:', clientId, 'deletedSections:', localDeletedSectionIds.length, 'schemaSections:', (localFormSchema?.sections || []).length);
 
     const updatedCustomization = {
       ...customization,
@@ -24068,23 +24087,24 @@ function AdminPage({ formData, setFormData, stories, setStories, opportunities, 
       updateDeletedSectionIds(localDeletedSectionIds);
     }
 
-    const clientId = clientInfo?.clientId || selectedClientId;
-    if (clientId) {
-      const result = await saveToDatabase(clientId, updatedCustomization);
-      if (result.success) {
-        setLocalDeletedSectionIds([]);
-        updateDeletedSectionIds([]);
-        baselineSchemaRef.current = localFormSchema;
-        baselineSectionVisibilityRef.current = sectionVisibility;
-        hasLocalChangesRef.current = false;
-      } else {
-        console.error('[AdminPage] Save failed:', result.error);
-        setErrorNotification('Failed to save changes. Please try again.');
-        setTimeout(() => setErrorNotification(null), 5000);
-      }
+    const result = await saveToDatabase(clientId, updatedCustomization);
+    if (result.success) {
+      setLocalDeletedSectionIds([]);
+      updateDeletedSectionIds([]);
+      baselineSchemaRef.current = localFormSchema;
+      baselineSectionVisibilityRef.current = sectionVisibility;
+      hasLocalChangesRef.current = false;
+      setJustSaved(true);
+      onSave(localForm, localStories, localOpportunities, localClientInfo);
+    } else {
+      console.error('[AdminPage] Save failed:', result.error);
+      setErrorNotification(result.error?.includes('sync page summaries')
+        ? 'Failed to save section data. Please try again.'
+        : result.error?.includes('delete')
+          ? 'Failed to remove deleted sections. Please try again.'
+          : 'Failed to save changes. Please try again.');
+      setTimeout(() => setErrorNotification(null), 5000);
     }
-
-    onSave(localForm, localStories, localOpportunities, localClientInfo);
   };
 
   const handleCancel = () => {
