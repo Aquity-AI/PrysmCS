@@ -808,47 +808,14 @@ const customizationClient = {
    */
   async saveToSupabase(clientId, customizationData) {
     try {
-      // Step 1: Sync sections to their dedicated tables based on sectionType
       const formSchema = customizationData?.formSchema || {};
       const sections = formSchema.sections || [];
       const deletedSectionIds = customizationData?.deletedSectionIds || [];
+      const deletedSet = new Set(deletedSectionIds);
 
-      const pageSummarySections = sections.filter(s => s.sectionType === 'page_summary');
+      const VALID_LAYOUT_STYLES = ['grid', 'list'];
+      const VALID_SUMMARY_MODES = ['manual', 'ai', 'hybrid'];
 
-      // Sync page_summaries
-      if (pageSummarySections.length > 0) {
-        const pageSummaryRecords = pageSummarySections.map(section => ({
-          client_id: clientId,
-          page_id: section.linkedTabId || 'main',
-          section_id: section.id,
-          title: section.title || '',
-          subtitle: section.subtitle || '',
-          summary_mode: section.summaryMode || 'manual',
-          layout_style: section.layoutStyle || 'grid',
-          max_items: section.maxItems || 4,
-          enabled: section.enabled ?? true,
-          display_order: section.order || 0,
-          width_units: section.widthUnits || 12,
-          row_position: section.rowPosition || 0,
-          column_position: section.columnPosition || 0,
-          updated_at: new Date().toISOString()
-        }));
-
-        const { error: psError } = await supabase
-          .from('page_summaries')
-          .upsert(pageSummaryRecords, {
-            onConflict: 'client_id,page_id,section_id',
-            ignoreDuplicates: false
-          });
-
-        if (psError) {
-          console.error('[customizationClient] Error syncing page_summaries:', psError);
-          return { success: false, error: `Failed to sync page summaries: ${psError.message}` };
-        }
-        console.log(`[customizationClient] Synced ${pageSummaryRecords.length} page_summary sections`);
-      }
-
-      // Step 2: Hard-delete removed sections from dedicated tables
       if (deletedSectionIds.length > 0) {
         console.log('[customizationClient] Processing hard-delete for sections:', deletedSectionIds);
 
@@ -894,7 +861,51 @@ const customizationClient = {
         };
       }
 
-      // Step 3: Save full customization to client_customizations (JSONB)
+      const pageSummarySections = sections.filter(s =>
+        s.sectionType === 'page_summary' && s.id && !deletedSet.has(s.id)
+      );
+
+      if (pageSummarySections.length > 0) {
+        const pageSummaryRecords = pageSummarySections.map(section => {
+          const rawWidth = section.widthUnits || 12;
+          const clampedWidth = Math.max(1, Math.min(12, rawWidth));
+          const layoutStyle = VALID_LAYOUT_STYLES.includes(section.layoutStyle)
+            ? section.layoutStyle : 'grid';
+          const summaryMode = VALID_SUMMARY_MODES.includes(section.summaryMode)
+            ? section.summaryMode : 'manual';
+
+          return {
+            client_id: clientId,
+            page_id: section.linkedTabId || 'main',
+            section_id: section.id,
+            title: section.title || '',
+            subtitle: section.subtitle || '',
+            summary_mode: summaryMode,
+            layout_style: layoutStyle,
+            max_items: section.maxItems || 4,
+            enabled: section.enabled ?? true,
+            display_order: section.order || 0,
+            width_units: clampedWidth,
+            row_position: section.rowPosition || 0,
+            column_position: section.columnPosition || 0,
+            updated_at: new Date().toISOString()
+          };
+        });
+
+        const { error: psError } = await supabase
+          .from('page_summaries')
+          .upsert(pageSummaryRecords, {
+            onConflict: 'client_id,page_id,section_id',
+            ignoreDuplicates: false
+          });
+
+        if (psError) {
+          console.error('[customizationClient] Error syncing page_summaries:', psError);
+          return { success: false, error: `Failed to sync page summaries: ${psError.message}` };
+        }
+        console.log(`[customizationClient] Synced ${pageSummaryRecords.length} page_summary sections`);
+      }
+
       const { error } = await supabase
         .from('client_customizations')
         .upsert({
