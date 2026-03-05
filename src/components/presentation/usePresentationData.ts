@@ -30,6 +30,18 @@ export function usePresentationData(
   const generatedSlidesRef = useRef<SlideData[]>([]);
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const initializedRef = useRef(false);
+  const reportDataKeyRef = useRef<string>('');
+
+  const getReportDataKey = useCallback(() => {
+    return JSON.stringify({
+      tabCount: reportData.tabs?.length ?? 0,
+      storyCount: reportData.stories?.length ?? 0,
+      priorityCount: reportData.priorities?.length ?? 0,
+      csmInfo: reportData.csmInfo,
+      clientOverview: reportData.clientOverview,
+      tabIds: reportData.tabs?.map((t: any) => t.id ?? t.label).join(',') ?? '',
+    });
+  }, [reportData.tabs, reportData.stories, reportData.priorities, reportData.csmInfo, reportData.clientOverview]);
 
   const generateAndMerge = useCallback((config: PresentationConfig | null, compactOverride?: boolean) => {
     const compact = compactOverride ?? config?.global_settings?.compactMode ?? globalSettings.compactMode;
@@ -57,10 +69,13 @@ export function usePresentationData(
   generateAndMergeRef.current = generateAndMerge;
   const savedConfigRef = useRef(savedConfig);
   savedConfigRef.current = savedConfig;
+  const slidesRef = useRef(slides);
+  slidesRef.current = slides;
 
   useEffect(() => {
     if (!isOpen) {
       initializedRef.current = false;
+      reportDataKeyRef.current = '';
       setConfigLoading(true);
     }
   }, [isOpen]);
@@ -69,8 +84,25 @@ export function usePresentationData(
     if (!isOpen || !clientId) return;
     if (reportData.loading) return;
 
+    const currentKey = getReportDataKey();
+
     if (initializedRef.current) {
-      const merged = generateAndMergeRef.current(savedConfigRef.current);
+      if (currentKey === reportDataKeyRef.current) return;
+      reportDataKeyRef.current = currentKey;
+
+      const currentSlides = slidesRef.current;
+      const { overrides: currentOverrides, customSlides: currentCustomSlides } = extractOverridesFromSlides(
+        currentSlides,
+        generatedSlidesRef.current,
+      );
+
+      const freshConfig: PresentationConfig = {
+        ...(savedConfigRef.current || {} as PresentationConfig),
+        slide_overrides: currentOverrides,
+        custom_slides: currentCustomSlides as any,
+      };
+
+      const merged = generateAndMergeRef.current(freshConfig);
       setSlides(merged);
       return;
     }
@@ -96,6 +128,7 @@ export function usePresentationData(
         const merged = generateAndMergeRef.current(config);
         setSlides(merged);
         setDataTimestamp(Date.now());
+        reportDataKeyRef.current = getReportDataKey();
 
         await touchPresentationConfig(clientId);
       } catch (err) {
@@ -112,7 +145,7 @@ export function usePresentationData(
 
     init();
     return () => { cancelled = true; };
-  }, [isOpen, clientId, reportData.loading, reportData.tabs, reportData.stories, reportData.priorities, reportData.csmInfo, reportData.clientOverview]);
+  }, [isOpen, clientId, reportData.loading, getReportDataKey]);
 
   const scheduleSave = useCallback((updatedSlides: SlideData[], updatedSettings: PresentationGlobalSettings) => {
     if (saveTimeoutRef.current) {

@@ -418,10 +418,11 @@ export function mergeSlidesWithOverrides(
         if (el.isBuiltIn) {
           const generated = slide.overlayElements.find(g => g.id === el.id);
           if (generated) {
-            const userEditedContent = el.content !== generated.content;
+            const userExplicitlySaved = 'content' in el;
+            const userEditedContent = userExplicitlySaved && el.content !== generated.content;
             return {
               ...el,
-              content: userEditedContent ? el.content : generated.content,
+              content: userEditedContent || (userExplicitlySaved && el.content === '') ? el.content : generated.content,
             };
           }
         }
