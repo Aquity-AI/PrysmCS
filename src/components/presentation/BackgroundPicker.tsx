@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
-import { Palette, Plus, X, Check, Save, RotateCw, Trash2 } from 'lucide-react';
+import { Palette, Plus, X, Check, Save, RotateCw, Layers } from 'lucide-react';
 import type { PresentationBranding, GradientColorStop, CustomGradient } from './types';
 import {
   BG_PRESETS,
@@ -19,6 +19,7 @@ interface BackgroundPickerProps {
   clientId: string;
   branding: PresentationBranding;
   onApply: (slideId: string, background: string) => void;
+  onApplyToAll: (background: string) => void;
 }
 
 type Tab = 'presets' | 'custom';
@@ -30,6 +31,7 @@ export function BackgroundPicker({
   clientId,
   branding,
   onApply,
+  onApplyToAll,
 }: BackgroundPickerProps) {
   const [open, setOpen] = useState(false);
   const [tab, setTab] = useState<Tab>('presets');
@@ -196,6 +198,7 @@ export function BackgroundPicker({
               defaultBackground={defaultBackground}
               branding={branding}
               onApply={handleApplyPreset}
+              onApplyToAll={(value) => { onApplyToAll(value); setOpen(false); }}
             />
           ) : (
             <CustomTab
@@ -220,6 +223,7 @@ export function BackgroundPicker({
               onSave={handleSaveGradient}
               onLoadGradient={handleLoadGradient}
               onDeleteGradient={handleDeleteGradient}
+              onApplyToAll={(value) => { onApplyToAll(value); setOpen(false); }}
             />
           )}
         </div>
@@ -233,12 +237,21 @@ function PresetsTab({
   defaultBackground,
   branding,
   onApply,
+  onApplyToAll,
 }: {
   activeBg: string;
   defaultBackground: string;
   branding: PresentationBranding;
   onApply: (value: string) => void;
+  onApplyToAll: (value: string) => void;
 }) {
+  const [lastSelected, setLastSelected] = useState<string | null>(null);
+
+  const handleSelect = (value: string) => {
+    setLastSelected(value);
+    onApply(value);
+  };
+
   return (
     <div>
       <div style={{ marginBottom: 12 }}>
@@ -247,7 +260,7 @@ function PresetsTab({
         </span>
         <div style={{ marginTop: 6 }}>
           <button
-            onClick={() => onApply(defaultBackground)}
+            onClick={() => handleSelect(defaultBackground)}
             style={{
               width: 64, height: 36, borderRadius: 6, cursor: 'pointer',
               border: activeBg === defaultBackground
@@ -277,7 +290,7 @@ function PresetsTab({
               {presets.map(p => (
                 <button
                   key={p.name}
-                  onClick={() => onApply(p.value)}
+                  onClick={() => handleSelect(p.value)}
                   style={{
                     width: '100%', aspectRatio: '16/10', borderRadius: 6, cursor: 'pointer',
                     border: activeBg === p.value
@@ -295,6 +308,21 @@ function PresetsTab({
           </div>
         );
       })}
+
+      <button
+        onClick={() => onApplyToAll(lastSelected || activeBg)}
+        style={{
+          width: '100%', padding: '9px 0', fontSize: 12, fontWeight: 600,
+          borderRadius: 7, border: '1px solid rgba(255,255,255,0.12)',
+          background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.6)',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          marginTop: 4, transition: 'background 0.15s ease, color 0.15s ease',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#fff'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; }}
+      >
+        <Layers size={13} /> Apply to All Slides
+      </button>
     </div>
   );
 }
@@ -321,6 +349,7 @@ function CustomTab({
   onSave,
   onLoadGradient,
   onDeleteGradient,
+  onApplyToAll,
 }: {
   gradientType: 'linear' | 'radial';
   colors: GradientColorStop[];
@@ -343,6 +372,7 @@ function CustomTab({
   onSave: () => void;
   onLoadGradient: (g: CustomGradient) => void;
   onDeleteGradient: (id: string) => void;
+  onApplyToAll: (value: string) => void;
 }) {
   return (
     <div>
@@ -545,6 +575,21 @@ function CustomTab({
           <RotateCw size={13} />
         </button>
       </div>
+
+      <button
+        onClick={() => onApplyToAll(livePreview)}
+        style={{
+          width: '100%', padding: '9px 0', fontSize: 12, fontWeight: 600,
+          borderRadius: 7, border: '1px solid rgba(255,255,255,0.12)',
+          background: 'rgba(255,255,255,0.04)', color: 'rgba(255,255,255,0.6)',
+          cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 6,
+          marginBottom: 12, transition: 'background 0.15s ease, color 0.15s ease',
+        }}
+        onMouseEnter={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.color = '#fff'; }}
+        onMouseLeave={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.04)'; e.currentTarget.style.color = 'rgba(255,255,255,0.6)'; }}
+      >
+        <Layers size={13} /> Apply to All Slides
+      </button>
 
       {(savedGradients.length > 0 || loadingSaved) && (
         <div>

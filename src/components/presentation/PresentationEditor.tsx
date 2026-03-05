@@ -153,6 +153,10 @@ export function PresentationEditor({
     onSlidesChange(prev => prev.map(s => s.id === slideId ? { ...s, background } : s));
   };
 
+  const updateAllSlidesBackground = (background: string) => {
+    onSlidesChange(prev => prev.map(s => ({ ...s, background })));
+  };
+
   const updateElement = (slideId: string, elementId: string, updates: Partial<OverlayElement>) => {
     onSlidesChange(prev => prev.map(s => {
       if (s.id === slideId) {
@@ -512,6 +516,7 @@ export function PresentationEditor({
                     clientId={clientId}
                     branding={branding}
                     onApply={updateSlideBackground}
+                    onApplyToAll={updateAllSlidesBackground}
                   />
                   <span style={{ fontSize: 11, color: 'rgba(255,255,255,0.3)', marginLeft: 8 }}>
                     Click slide content to select, drag to move, double-click text to edit
