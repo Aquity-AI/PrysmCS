@@ -20026,6 +20026,7 @@ function CustomTabPage({ tabId, tabLabel, data, sectionVisibility = {}, clientId
             </span>
           </p>
         </div>
+        <DashboardGraphGrid clientId={clientId} pageId={tabId} brandColor={brandColor} />
       </div>
     );
   }
@@ -20365,6 +20366,7 @@ function OverviewPage({ data, sectionVisibility = {}, brandColor: propBrandColor
         <div className="chart-card" style={{ textAlign: 'center', padding: '60px 20px', color: '#94a3b8' }}>
           <p>No sections configured for this view. Enable sections in Dashboard Management.</p>
         </div>
+        <DashboardGraphGrid clientId={clientId} pageId={pageId} brandColor={brandColor} />
       </div>
     );
   }
@@ -21196,6 +21198,7 @@ function EnrollmentPage({ data, sectionVisibility = {}, brandColor: propBrandCol
             Add customer metrics and campaign tracking through Data Management to see your engagement data here.
           </p>
         </div>
+        <DashboardGraphGrid clientId={clientId} pageId={pageId} brandColor={brandColor} />
       </div>
     );
   }
@@ -21538,6 +21541,7 @@ function FinancialPage({ data, sectionVisibility = {}, brandColor: propBrandColo
             Add financial metrics and revenue tracking through Data Management to see your financial data here.
           </p>
         </div>
+        <DashboardGraphGrid clientId={clientId} pageId={pageId} brandColor={brandColor} />
       </div>
     );
   }
@@ -21685,6 +21689,7 @@ function OutcomesPage({ data, sectionVisibility = {}, clientId = 'demo-client' }
             Add outcome metrics and health tracking through Data Management to see your outcomes data here.
           </p>
         </div>
+        <DashboardGraphGrid clientId={clientId} pageId={pageId} brandColor={brandColor} />
       </div>
     );
   }
@@ -21810,6 +21815,7 @@ function StoriesPage({ stories, sectionVisibility = {}, healthData = null, clien
         <div className="chart-card" style={{ textAlign: 'center', padding: '60px 20px', color: '#94a3b8' }}>
           <p>No sections configured for this view. Enable sections in Dashboard Management.</p>
         </div>
+        <DashboardGraphGrid clientId={clientId} pageId={pageId} brandColor={brandColor} />
       </div>
     );
   }
@@ -21936,6 +21942,7 @@ function OpportunitiesPage({ opportunities, sectionVisibility = {}, clientId = '
         <div className="chart-card" style={{ textAlign: 'center', padding: '60px 20px', color: '#94a3b8' }}>
           <p>No sections configured for this view. Enable sections in Dashboard Management.</p>
         </div>
+        <DashboardGraphGrid clientId={clientId} pageId={pageId} brandColor={brandColor} />
       </div>
     );
   }
