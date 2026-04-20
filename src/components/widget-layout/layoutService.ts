@@ -194,10 +194,14 @@ export function generateDefaultLayout(
 
 export function mergeLayoutWithDefinitions(
   savedLayout: PageLayoutConfig | null,
-  definitions: WidgetDefinition[]
+  definitions: WidgetDefinition[],
+  options: { seedDefaults?: boolean } = {}
 ): WidgetPosition[] {
   if (!savedLayout || !savedLayout.widgets || savedLayout.widgets.length === 0) {
-    return generateDefaultLayout(definitions).widgets;
+    if (options.seedDefaults) {
+      return generateDefaultLayout(definitions).widgets;
+    }
+    return [];
   }
 
   const savedMap = new Map(savedLayout.widgets.map(w => [w.widgetId, w]));
@@ -209,7 +213,7 @@ export function mergeLayoutWithDefinitions(
     if (saved) {
       result.push(saved);
       maxRow = Math.max(maxRow, saved.row);
-    } else {
+    } else if (options.seedDefaults) {
       result.push({
         widgetId: def.widgetId,
         widgetType: def.widgetType,

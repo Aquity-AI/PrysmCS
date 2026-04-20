@@ -986,12 +986,14 @@ const customizationClient = {
         }
 
         if (allSections.length > 0) {
+          const isDemo = DEMO_CLIENT_IDS.includes(clientId);
+          const baseSchema = isDemo ? DEFAULT_FORM_SCHEMA : EMPTY_FORM_SCHEMA;
           return {
             success: true,
             data: {
               formSchema: {
-                ...DEFAULT_FORM_SCHEMA,
-                sections: [...DEFAULT_FORM_SCHEMA.sections, ...allSections]
+                ...baseSchema,
+                sections: [...baseSchema.sections, ...allSections]
               }
             }
           };
@@ -1001,7 +1003,9 @@ const customizationClient = {
       }
 
       let customizationData = data.customization_data;
-      const existingFormSchema = customizationData.formSchema || DEFAULT_FORM_SCHEMA;
+      const isDemo = DEMO_CLIENT_IDS.includes(clientId);
+      const fallbackSchema = isDemo ? DEFAULT_FORM_SCHEMA : EMPTY_FORM_SCHEMA;
+      const existingFormSchema = customizationData.formSchema || fallbackSchema;
       const existingSectionIds = new Set(existingFormSchema.sections.map(s => s.id));
       const deletedSectionIds = new Set(customizationData.deletedSectionIds || []);
 
@@ -1753,48 +1757,16 @@ const NEW_CLIENT_FORM_SCHEMA = {
   formSubtitle: 'Enter metrics for the selected month',
   allowCustomSections: true,
   allowCustomFields: true,
-  sections: [
-    createFormSection('coreMetrics', {
-      title: 'Core Metrics',
-      subtitle: 'Primary KPIs shown on the dashboard overview',
-      icon: 'LayoutDashboard',
-      iconColor: 'brand',
-      order: 0,
-      enabled: true,
-      linkedTabId: 'overview',
-      collapsedByDefault: true,
-      fields: [
-        createFieldDef('keyMetric1', {
-          metricId: 'keyMetric1',
-          label: 'Key Metric 1',
-          placeholder: 'Enter value',
-          fieldType: FIELD_TYPES.NUMBER,
-          order: 0,
-        }),
-        createFieldDef('keyMetric2', {
-          metricId: 'keyMetric2',
-          label: 'Key Metric 2',
-          placeholder: 'Enter value',
-          fieldType: FIELD_TYPES.NUMBER,
-          order: 1,
-        }),
-        createFieldDef('keyMetric3', {
-          metricId: 'keyMetric3',
-          label: 'Key Metric 3',
-          placeholder: 'Enter value',
-          fieldType: FIELD_TYPES.NUMBER,
-          order: 2,
-        }),
-        createFieldDef('keyMetric4', {
-          metricId: 'keyMetric4',
-          label: 'Key Metric 4',
-          placeholder: 'Enter value',
-          fieldType: FIELD_TYPES.NUMBER,
-          order: 3,
-        }),
-      ],
-    }),
-  ],
+  sections: [],
+  customMetrics: {},
+};
+
+const EMPTY_FORM_SCHEMA = {
+  formTitle: 'Monthly Data Entry',
+  formSubtitle: 'Enter metrics for the selected month',
+  allowCustomSections: true,
+  allowCustomFields: true,
+  sections: [],
   customMetrics: {},
 };
 
@@ -3122,12 +3094,12 @@ function CustomizationProvider({ children }) {
   const getFormSchema = useCallback((clientId = null) => {
     // Always check customization.formSchema first (this contains data from Supabase)
     // This ensures that saved changes from the database are used
-    const schema = customization.formSchema || DEFAULT_FORM_SCHEMA;
+    const isDemo = isDemoClient(clientId);
+    const emptyOrDefault = isDemo ? DEFAULT_FORM_SCHEMA : EMPTY_FORM_SCHEMA;
+    const schema = customization.formSchema || emptyOrDefault;
 
-    // For new clients without any saved schema, use the minimal schema
-    if (clientId && isNewClient(clientId) && !isDemoClient(clientId)) {
-      // Only use NEW_CLIENT_FORM_SCHEMA if we don't have customization data
-      // and there's no localStorage cache
+    // For new clients without any saved schema, use the empty schema
+    if (clientId && isNewClient(clientId) && !isDemo) {
       if (!customization.formSchema) {
         const clientSchemaKey = `client_form_schema_${clientId}`;
         const savedClientSchema = localStorage.getItem(clientSchemaKey);
@@ -3138,7 +3110,7 @@ function CustomizationProvider({ children }) {
             console.error('Failed to parse client schema:', e);
           }
         }
-        // Return the minimal new client schema only if no saved data exists
+        // Return the empty new client schema so no widgets are pre-populated
         return NEW_CLIENT_FORM_SCHEMA;
       }
     }
@@ -3152,7 +3124,13 @@ function CustomizationProvider({ children }) {
       return section;
     });
 
-    // Only add new default sections if the schema hasn't been customized
+    // Only auto-merge missing default sections for demo clients. New and
+    // non-demo clients must opt in explicitly via the widget picker so their
+    // dashboards stay clean until the user adds something.
+    if (!isDemo) {
+      return { ...schema, sections: sectionsWithLinks };
+    }
+
     const deletedSections = customization.deletedSectionIds || [];
     const existingSectionIds = new Set(sectionsWithLinks.map(s => s.id));
 
@@ -3288,6 +3266,8 @@ function CustomizationProvider({ children }) {
       return { success: false, error: 'No client ID provided' };
     }
     const result = await customizationClient.loadFromSupabase(clientId);
+    const isDemo = isDemoClient(clientId);
+    const emptyOrDefault = isDemo ? DEFAULT_FORM_SCHEMA : EMPTY_FORM_SCHEMA;
     if (result.success && result.data) {
       setCustomization(prev => ({
         ...defaultCustomization,
@@ -3299,13 +3279,13 @@ function CustomizationProvider({ children }) {
           tabs: result.data.navigation?.tabs || defaultCustomization.navigation.tabs,
         },
         sectionVisibility: result.data.sectionVisibility || defaultCustomization.sectionVisibility,
-        formSchema: result.data.formSchema || DEFAULT_FORM_SCHEMA,
+        formSchema: result.data.formSchema || emptyOrDefault,
       }));
     } else if (result.success && !result.data) {
       setCustomization(prev => ({
         ...defaultCustomization,
         branding: prev.branding,
-        formSchema: DEFAULT_FORM_SCHEMA,
+        formSchema: emptyOrDefault,
       }));
     }
     return result;
