@@ -408,33 +408,38 @@ export function mergeSlidesWithOverrides(
     const override = overrides[slide.id];
     if (!override) return slide;
 
+    const deletedIds = new Set(override.deletedBuiltInIds ?? []);
     let overlayElements = override.overlayElements ?? slide.overlayElements;
 
     if (override.overlayElements) {
-      overlayElements = override.overlayElements.map(el => {
-        if (el.id === '__logo__' && slide.logoUrl) {
-          return { ...el, src: slide.logoUrl };
-        }
-        if (el.isBuiltIn) {
-          const generated = slide.overlayElements.find(g => g.id === el.id);
-          if (generated) {
-            const userExplicitlySaved = 'content' in el;
-            const userEditedContent = userExplicitlySaved && el.content !== generated.content;
-            return {
-              ...el,
-              content: userEditedContent || (userExplicitlySaved && el.content === '') ? el.content : generated.content,
-            };
+      overlayElements = override.overlayElements
+        .filter(el => !deletedIds.has(el.id))
+        .map(el => {
+          if (el.id === '__logo__' && slide.logoUrl) {
+            return { ...el, src: slide.logoUrl };
           }
-        }
-        return el;
-      });
+          if (el.isBuiltIn) {
+            const generated = slide.overlayElements.find(g => g.id === el.id);
+            if (generated) {
+              const userExplicitlySaved = 'content' in el;
+              const userEditedContent = userExplicitlySaved && el.content !== generated.content;
+              return {
+                ...el,
+                content: userEditedContent || (userExplicitlySaved && el.content === '') ? el.content : generated.content,
+              };
+            }
+          }
+          return el;
+        });
 
       const existingIds = new Set(overlayElements.map(el => el.id));
       for (const genEl of slide.overlayElements) {
-        if (!existingIds.has(genEl.id)) {
+        if (!existingIds.has(genEl.id) && !deletedIds.has(genEl.id)) {
           overlayElements = [...overlayElements, genEl];
         }
       }
+    } else if (deletedIds.size > 0) {
+      overlayElements = overlayElements.filter(el => !deletedIds.has(el.id));
     }
 
     return {
@@ -444,6 +449,7 @@ export function mergeSlidesWithOverrides(
       overlayElements,
       contentLayout: override.contentLayout ?? slide.contentLayout,
       order: override.order ?? slide.order,
+      deletedBuiltInIds: override.deletedBuiltInIds,
     };
   });
 
@@ -481,6 +487,10 @@ export function extractOverridesFromSlides(
     if (slide.overlayElements.length > 0) { diff.overlayElements = slide.overlayElements; hasDiff = true; }
     if (JSON.stringify(slide.contentLayout) !== JSON.stringify(generated.contentLayout)) {
       diff.contentLayout = slide.contentLayout;
+      hasDiff = true;
+    }
+    if (slide.deletedBuiltInIds && slide.deletedBuiltInIds.length > 0) {
+      diff.deletedBuiltInIds = slide.deletedBuiltInIds;
       hasDiff = true;
     }
 

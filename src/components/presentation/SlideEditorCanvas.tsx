@@ -1,6 +1,8 @@
 import { useState, useRef, useCallback, useEffect } from 'react';
+import { Trash2 } from 'lucide-react';
 import { SlideContentRenderer } from './SlideContent';
 import type { SlideData, PresentationBranding, OverlayElement } from './types';
+import { PROTECTED_ELEMENT_IDS } from './types';
 
 interface SlideEditorCanvasProps {
   slide: SlideData;
@@ -241,21 +243,62 @@ export function SlideEditorCanvas({
             )}
 
             {isSelected && !isEditing && (
-              <div
-                onMouseDown={(e) => handleResizeMouseDown(e, elem.id)}
-                style={{
-                  position: 'absolute',
-                  right: -6,
-                  bottom: -6,
-                  width: 12,
-                  height: 12,
-                  borderRadius: 3,
-                  background: branding.primaryColor,
-                  cursor: 'nwse-resize',
-                  border: '2px solid #fff',
-                  boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
-                }}
-              />
+              <>
+                <div
+                  onMouseDown={(e) => handleResizeMouseDown(e, elem.id)}
+                  style={{
+                    position: 'absolute',
+                    right: -6,
+                    bottom: -6,
+                    width: 12,
+                    height: 12,
+                    borderRadius: 3,
+                    background: branding.primaryColor,
+                    cursor: 'nwse-resize',
+                    border: '2px solid #fff',
+                    boxShadow: '0 1px 3px rgba(0,0,0,0.3)',
+                  }}
+                />
+                {!PROTECTED_ELEMENT_IDS.has(elem.id) && (
+                  <button
+                    type="button"
+                    title="Delete element (Delete key)"
+                    onMouseDown={(e) => { e.stopPropagation(); e.preventDefault(); }}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onDeleteElement(slide.id, elem.id);
+                    }}
+                    style={{
+                      position: 'absolute',
+                      top: -14,
+                      right: -14,
+                      width: 26,
+                      height: 26,
+                      borderRadius: '50%',
+                      background: '#ef4444',
+                      border: '2px solid #fff',
+                      color: '#fff',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      boxShadow: '0 2px 6px rgba(0,0,0,0.35)',
+                      padding: 0,
+                      transition: 'transform 0.12s ease, background 0.12s ease',
+                    }}
+                    onMouseEnter={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1.1)';
+                      (e.currentTarget as HTMLButtonElement).style.background = '#dc2626';
+                    }}
+                    onMouseLeave={(e) => {
+                      (e.currentTarget as HTMLButtonElement).style.transform = 'scale(1)';
+                      (e.currentTarget as HTMLButtonElement).style.background = '#ef4444';
+                    }}
+                  >
+                    <Trash2 size={13} />
+                  </button>
+                )}
+              </>
             )}
           </div>
         );

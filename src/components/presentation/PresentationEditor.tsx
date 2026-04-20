@@ -8,6 +8,7 @@ import { SlideEditorCanvas } from './SlideEditorCanvas';
 import { slideTypeRegistry } from './slideTypeRegistry';
 import { BackgroundPicker } from './BackgroundPicker';
 import type { SlideData, PresentationBranding, OverlayElement } from './types';
+import { PROTECTED_ELEMENT_IDS } from './types';
 
 const ANIMATION_OPTIONS = [
   { value: 'fade', label: 'Fade' },
@@ -104,6 +105,7 @@ export function PresentationEditor({
   const [selectedElement, setSelectedElement] = useState<string | null>(null);
   const [autoEditElementId, setAutoEditElementId] = useState<string | null>(null);
   const [draggedSlide, setDraggedSlide] = useState<string | null>(null);
+  const [deleteBlockedMessage, setDeleteBlockedMessage] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
   const slideListRef = useRef<HTMLDivElement>(null);
 
@@ -180,16 +182,23 @@ export function PresentationEditor({
   };
 
   const deleteElement = (slideId: string, elementId: string) => {
-    const slide = slides.find(s => s.id === slideId);
-    if (slide) {
-      const elem = slide.overlayElements.find(el => el.id === elementId);
-      if (elem?.isBuiltIn) return;
+    if (PROTECTED_ELEMENT_IDS.has(elementId)) {
+      setDeleteBlockedMessage('Title, subtitle and meta placeholders cannot be deleted. Edit their content instead.');
+      window.setTimeout(() => setDeleteBlockedMessage(null), 2800);
+      return;
     }
+
+    const slide = slides.find(s => s.id === slideId);
+    const elem = slide?.overlayElements.find(el => el.id === elementId);
+    const isBuiltIn = !!elem?.isBuiltIn;
+
     onSlidesChange(prev => prev.map(s => {
-      if (s.id === slideId) {
-        return { ...s, overlayElements: s.overlayElements.filter(el => el.id !== elementId) };
-      }
-      return s;
+      if (s.id !== slideId) return s;
+      const nextOverlays = s.overlayElements.filter(el => el.id !== elementId);
+      const nextDeleted = isBuiltIn
+        ? Array.from(new Set([...(s.deletedBuiltInIds ?? []), elementId]))
+        : s.deletedBuiltInIds;
+      return { ...s, overlayElements: nextOverlays, deletedBuiltInIds: nextDeleted };
     }));
     setSelectedElement(null);
   };
@@ -552,6 +561,31 @@ export function PresentationEditor({
           style={{ display: 'none' }}
           onChange={handleImageUpload}
         />
+
+        {deleteBlockedMessage && (
+          <div
+            role="status"
+            style={{
+              position: 'fixed',
+              bottom: 28,
+              left: '50%',
+              transform: 'translateX(-50%)',
+              background: 'rgba(15, 23, 42, 0.96)',
+              color: '#fff',
+              padding: '12px 18px',
+              borderRadius: 10,
+              border: '1px solid rgba(239, 68, 68, 0.5)',
+              boxShadow: '0 12px 32px rgba(0,0,0,0.5)',
+              fontSize: 13,
+              fontWeight: 500,
+              zIndex: 1000,
+              maxWidth: 420,
+              animation: 'fadeInUp 0.18s ease-out',
+            }}
+          >
+            {deleteBlockedMessage}
+          </div>
+        )}
       </div>
     </div>
   );

@@ -63,6 +63,8 @@ export interface SlideData {
   companyName?: string;
   logoUrl?: string;
   platformName?: string;
+
+  deletedBuiltInIds?: string[];
 }
 
 export interface SlideOverride {
@@ -71,7 +73,10 @@ export interface SlideOverride {
   overlayElements?: OverlayElement[];
   contentLayout?: ContentLayout;
   order?: number;
+  deletedBuiltInIds?: string[];
 }
+
+export const PROTECTED_ELEMENT_IDS = new Set<string>(['__title__', '__subtitle__', '__meta__']);
 
 export interface PresentationGlobalSettings {
   animation: string;
